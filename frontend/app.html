@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fitness Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="logo">Fitness 💪</div>
+    <ul class="nav-menu">
+      <li><a href="#" class="nav-link active" data-tab="dashboard">Dashboard</a></li>
+      <li><a href="#" class="nav-link" data-tab="exercises">Exercises</a></li>
+      <li><a href="#" class="nav-link" data-tab="scanner">Machine Scanner</a></li>
+      <li><a href="#" class="nav-link" data-tab="workouts">Workouts</a></li>
+      <li><a href="#" class="nav-link" data-tab="meals">Meals</a></li>
+      <li><a href="#" class="nav-link" data-tab="goals">Goals</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="btn btn-danger w-full">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div id="message" class="message hidden"></div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="tab-content active">
+      <header><h1>Dashboard</h1></header>
+      <div class="main-content">
+        <div class="card">
+          <h3>Total Workouts</h3>
+          <div class="card-value" id="totalWorkouts">0</div>
+        </div>
+        <div class="card">
+          <h3>Total Calories</h3>
+          <div class="card-value" id="totalCalories">0</div>
+        </div>
+        <div class="card">
+          <h3>Active Goals</h3>
+          <div class="card-value" id="activeGoals">0</div>
+        </div>
+        <div class="card">
+          <h3>Exercises</h3>
+          <div class="card-value" id="totalExercises">0</div>
+        </div>
+      </div>
+      <div class="list-container">
+        <h2>Recent Workouts</h2>
+        <div id="recentWorkouts"></div>
+      </div>
+    </div>
+
+    <!-- EXERCISES -->
+    <div id="exercises" class="tab-content">
+      <header><h1>Exercises</h1></header>
+      <div class="form-section">
+        <h2>Filter Exercises</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Search</label>
+            <input type="text" id="exerciseSearch" placeholder="Search by name...">
+          </div>
+          <div class="form-group">
+            <label>Muscle Group</label>
+            <select id="muscleFilter">
+              <option value="">All</option>
+              <option value="chest">Chest</option>
+              <option value="back">Back</option>
+              <option value="legs">Legs</option>
+              <option value="shoulders">Shoulders</option>
+              <option value="arms">Arms</option>
+              <option value="core">Core</option>
+              <option value="cardio">Cardio</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="list-container">
+        <div id="exercisesList"></div>
+      </div>
+    </div>
+
+    <!-- MACHINE SCANNER -->
+    <div id="scanner" class="tab-content">
+      <header><h1>Machine Scanner</h1></header>
+      <div class="form-section">
+        <h2>Identify Gym Equipment</h2>
+        <p class="muted">Upload a photo of gym equipment to identify it and see suggested exercises.</p>
+
+        <div class="upload-box" id="uploadBox">
+          <p style="font-size: 40px; margin: 0;">📷</p>
+          <p><strong>Click to upload or drag & drop</strong></p>
+          <input type="file" id="imageInput" accept="image/*">
+        </div>
+
+        <div id="preview" class="preview hidden">
+          <img id="previewImg" src="" alt="Preview">
+        </div>
+
+        <div id="predictionResult" class="prediction-result hidden">
+          <h3>Equipment Identified</h3>
+          <div class="equipment-info">
+            <p id="machineName" style="font-size: 24px; font-weight: bold; margin: 10px 0;">Equipment</p>
+            <div class="confidence" id="confidenceScore">0%</div>
+          </div>
+
+          <h3 style="margin-top: 30px; margin-bottom: 15px;">Suggested Exercises</h3>
+          <p class="muted">Click an exercise to see details and add it to your workout</p>
+
+          <div id="exerciseSuggestions" class="exercise-suggestions">
+            <!-- Exercise cards will appear here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKOUTS -->
+    <div id="workouts" class="tab-content">
+      <header><h1>Workouts</h1></header>
+      <div class="form-section">
+        <h2>Create New Workout</h2>
+        <form id="workoutForm">
+          <div class="form-group">
+            <label>Workout Name</label>
+            <input type="text" id="workoutName" placeholder="e.g., Morning Run" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="workoutDate" required>
+            </div>
+            <div class="form-group">
+              <label>Duration (minutes)</label>
+              <input type="number" id="workoutDuration" placeholder="45 min" min="1" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="workoutNotes" placeholder="How did it feel?" rows="3"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Create Workout</button>
+        </form>
+      </div>
+      <div class="list-container">
+        <h2>Your Workouts</h2>
+        <div id="workoutsList"></div>
+      </div>
+    </div>
+
+    <!-- MEALS -->
+    <div id="meals" class="tab-content">
+      <header><h1>Meals</h1></header>
+      <div class="form-section">
+        <h2>Log Meal</h2>
+        <form id="mealForm">
+          <div class="form-group">
+            <label>Meal Name</label>
+            <input type="text" id="mealName" placeholder="e.g., Chicken Rice" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Calories</label>
+              <input type="number" id="mealCalories" placeholder="500" min="1" required>
+            </div>
+            <div class="form-group">
+              <label>Meal Type</label>
+              <select id="mealType" required>
+                <option value="">Select</option>
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Log Meal</button>
+        </form>
+      </div>
+      <div class="list-container">
+        <h2>Meal History</h2>
+        <div id="mealsList"></div>
+      </div>
+    </div>
+
+    <!-- GOALS -->
+    <div id="goals" class="tab-content">
+      <header><h1>Goals</h1></header>
+      <div class="form-section">
+        <h2>Set New Goal</h2>
+        <form id="goalForm">
+          <div class="form-group">
+            <label>Goal Title</label>
+            <input type="text" id="goalTitle" placeholder="e.g., Run 5K" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="goalDescription" placeholder="Describe your goal..." rows="2"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Target Date</label>
+              <input type="date" id="goalDate" required>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="goalStatus" required>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="onhold">On Hold</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Create Goal</button>
+        </form>
+      </div>
+      <div class="list-container">
+        <h2>Your Goals</h2>
+        <div id="goalsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

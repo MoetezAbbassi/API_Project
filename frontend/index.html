@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fitness - Login</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="auth-body">
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-brand">Fitness</div>
+
+      <div class="auth-tabs">
+        <button id="tabLogin" class="auth-tab active" type="button">Login</button>
+        <button id="tabRegister" class="auth-tab" type="button">Register</button>
+      </div>
+
+      <div id="authMsg" class="auth-msg hidden"></div>
+
+      <!-- LOGIN -->
+      <form id="loginForm" class="auth-form">
+        <label>Username</label>
+        <input id="loginUsername" type="text" placeholder="your username" required />
+
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" required />
+
+        <button class="btn btn-primary w-full" type="submit">Login</button>
+
+        <p class="auth-help">
+          Don't have an account? <a href="#" id="goRegister">Register</a>
+        </p>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="registerForm" class="auth-form hidden">
+        <label>Name</label>
+        <input id="regName" type="text" placeholder="Your name" />
+
+        <label>Username</label>
+        <input id="regUsername" type="text" placeholder="Choose a username" required />
+
+        <label>Email</label>
+        <input id="regEmail" type="email" placeholder="you@email.com" required />
+
+        <label>Password</label>
+        <input id="regPassword" type="password" placeholder="Create a password" required />
+
+        <button class="btn btn-primary w-full" type="submit">Create account</button>
+
+        <p class="auth-help">
+          Already have an account? <a href="#" id="goLogin">Login</a>
+        </p>
+      </form>
+    </div>
+
+    <div class="auth-footer">
+      <small>API: <code id="apiUrlLabel"></code></small>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
