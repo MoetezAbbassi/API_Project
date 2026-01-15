@@ -205,3 +205,41 @@ def server_error_response(message="Internal server error", status_code=500):
             "code": "SERVER_ERROR"
         }
     }, status_code
+
+
+def conflict_response(message="Resource conflict", status_code=409):
+    """
+    Return a conflict response (e.g., resource in use)
+    
+    Args:
+        message: Conflict message
+        status_code: HTTP status code (default 409)
+        
+    Returns:
+        Tuple of (dict, status_code) - Flask compatible
+    """
+    return {
+        "success": False,
+        "error": {
+            "type": "Conflict",
+            "message": message,
+            "code": "CONFLICT"
+        }
+    }, status_code
+
+
+def deleted_response(message="Deleted successfully", status_code=200):
+    """
+    Return a deleted response
+    
+    Args:
+        message: Success message
+        status_code: HTTP status code (default 200)
+        
+    Returns:
+        Tuple of (dict, status_code) - Flask compatible
+    """
+    return {
+        "success": True,
+        "message": message
+    }, status_code

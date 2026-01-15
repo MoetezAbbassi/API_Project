@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone, date
 from sqlalchemy import func, and_
 from app.extensions import db
 
-from app.models import User, Workout, Meal, Goal
+from app.models import User, Workout, Meal, Goal, WeightEntry
 from app.services.auth_service import AuthService
 from app.utils import validators
 from app.utils.responses import (
@@ -31,6 +31,7 @@ def serialize_user(user: User) -> dict:
         "email": user.email,
         "age": user.age,
         "current_weight": user.current_weight,
+        "target_weight": user.target_weight,
         "height": user.height,
         "created_at": user.created_at.isoformat() + 'Z',
         "updated_at": user.updated_at.isoformat() + 'Z'
@@ -114,6 +115,14 @@ def update_user(token_user_id, user_id):
                     return validation_error_response(error_msg)
             user.current_weight = data['current_weight']
         
+        # Update target_weight if provided
+        if 'target_weight' in data:
+            if data['target_weight'] is not None:
+                is_valid, error_msg = validators.validate_positive_number(data['target_weight'], 'target_weight')
+                if not is_valid:
+                    return validation_error_response(error_msg)
+            user.target_weight = data['target_weight']
+        
         # Update height if provided
         if 'height' in data:
             if data['height'] is not None:
@@ -123,12 +132,12 @@ def update_user(token_user_id, user_id):
             user.height = data['height']
         
         user.updated_at = datetime.now(timezone.utc)
-        db.commit()
+        db.session.commit()
         
         return success_response(serialize_user(user), "User profile updated successfully")
     
     except Exception as e:
-        db.rollback()
+        db.session.rollback()
         return error_response(
             "Update Error",
             "An error occurred while updating user profile",
@@ -381,5 +390,264 @@ def get_user_progress(token_user_id, user_id):
             "Progress Error",
             "An error occurred while retrieving user progress",
             "PROGRESS_ERROR",
+            500
+        )
+
+# Weight Tracking Endpoints
+@bp.route('/<user_id>/weight', methods=['POST'])
+@token_required
+@validate_json
+def add_weight_entry(token_user_id, user_id):
+    """Add a weight entry for the user.
+    
+    Request JSON:
+        - weight (float, required): Weight in kg
+        - entry_date (string, optional): Date in YYYY-MM-DD format (default: today)
+        - notes (string, optional): Notes about the entry
+    
+    Returns:
+        201: Weight entry created
+        400: Validation error
+        401: Unauthorized
+        404: User not found
+    """
+    try:
+        # Security check
+        if token_user_id != user_id:
+            return forbidden_response("You can only add weight entries to your own profile")
+        
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return not_found_response("User")
+        
+        data = request.get_json()
+        
+        # Validate weight
+        if 'weight' not in data or data['weight'] is None:
+            return validation_error_response("weight is required")
+        
+        is_valid, error_msg = validators.validate_positive_number(data['weight'], 'weight')
+        if not is_valid:
+            return validation_error_response(error_msg)
+        
+        # Parse entry date (default to today)
+        entry_date = date.today()
+        if 'entry_date' in data and data['entry_date']:
+            try:
+                entry_date = datetime.strptime(data['entry_date'], '%Y-%m-%d').date()
+            except ValueError:
+                return validation_error_response("entry_date must be in YYYY-MM-DD format")
+        
+        # Create weight entry
+        weight_entry = WeightEntry(
+            user_id=user_id,
+            weight=float(data['weight']),
+            entry_date=entry_date,
+            notes=data.get('notes')
+        )
+        
+        # Update user's current weight
+        user.current_weight = float(data['weight'])
+        user.updated_at = datetime.now(timezone.utc)
+        
+        db.session.add(weight_entry)
+        db.session.commit()
+        
+        return success_response({
+            "entry_id": weight_entry.entry_id,
+            "weight": weight_entry.weight,
+            "entry_date": weight_entry.entry_date.isoformat(),
+            "notes": weight_entry.notes,
+            "created_at": weight_entry.created_at.isoformat() + 'Z'
+        }, "Weight entry added successfully", 201)
+    
+    except Exception as e:
+        db.rollback()
+        return error_response(
+            "Weight Entry Error",
+            "An error occurred while adding weight entry",
+            "WEIGHT_ENTRY_ERROR",
+            500
+        )
+
+
+@bp.route('/<user_id>/weight', methods=['GET'])
+@token_required
+def get_weight_history(token_user_id, user_id):
+    """Get user's weight history.
+    
+    Query Parameters:
+        - days (int, optional): Get weight entries from last N days (default: 90)
+    
+    Returns:
+        200: List of weight entries sorted by date
+        401: Unauthorized
+        404: User not found
+    """
+    try:
+        # Security check
+        if token_user_id != user_id:
+            return forbidden_response("You can only view your own weight history")
+        
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return not_found_response("User")
+        
+        # Get number of days to retrieve (default 90)
+        days = request.args.get('days', default=90, type=int)
+        if days < 1:
+            days = 90
+        
+        # Calculate start date
+        start_date = date.today() - timedelta(days=days)
+        
+        # Get weight entries
+        entries = db.session.query(WeightEntry).filter(
+            and_(
+                WeightEntry.user_id == user_id,
+                WeightEntry.entry_date >= start_date
+            )
+        ).order_by(WeightEntry.entry_date.asc()).all()
+        
+        return success_response({
+            "user_id": user_id,
+            "target_weight": user.target_weight,
+            "current_weight": user.current_weight,
+            "entries": [
+                {
+                    "entry_id": e.entry_id,
+                    "weight": e.weight,
+                    "entry_date": e.entry_date.isoformat(),
+                    "notes": e.notes
+                }
+                for e in entries
+            ]
+        })
+    
+    except Exception as e:
+        return error_response(
+            "Weight History Error",
+            "An error occurred while retrieving weight history",
+            "WEIGHT_HISTORY_ERROR",
+            500
+        )
+
+
+@bp.route('/<user_id>/weight/<entry_id>', methods=['PUT'])
+@token_required
+@validate_json
+def update_weight_entry(token_user_id, user_id, entry_id):
+    """Update a weight entry.
+    
+    Request JSON (at least one required):
+        - weight (float): New weight in kg
+        - entry_date (string): Date in YYYY-MM-DD format
+        - notes (string): Updated notes
+    
+    Returns:
+        200: Updated weight entry
+        400: Validation error
+        401: Unauthorized
+        404: Entry or user not found
+    """
+    try:
+        # Security check
+        if token_user_id != user_id:
+            return forbidden_response("You can only update your own weight entries")
+        
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return not_found_response("User")
+        
+        entry = db.session.query(WeightEntry).filter(
+            and_(
+                WeightEntry.entry_id == entry_id,
+                WeightEntry.user_id == user_id
+            )
+        ).first()
+        if not entry:
+            return not_found_response("Weight entry")
+        
+        data = request.get_json()
+        
+        # Update weight if provided
+        if 'weight' in data and data['weight'] is not None:
+            is_valid, error_msg = validators.validate_positive_number(data['weight'], 'weight')
+            if not is_valid:
+                return validation_error_response(error_msg)
+            entry.weight = float(data['weight'])
+            user.current_weight = float(data['weight'])
+        
+        # Update entry date if provided
+        if 'entry_date' in data and data['entry_date']:
+            try:
+                entry.entry_date = datetime.strptime(data['entry_date'], '%Y-%m-%d').date()
+            except ValueError:
+                return validation_error_response("entry_date must be in YYYY-MM-DD format")
+        
+        # Update notes if provided
+        if 'notes' in data:
+            entry.notes = data['notes']
+        
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        
+        return success_response({
+            "entry_id": entry.entry_id,
+            "weight": entry.weight,
+            "entry_date": entry.entry_date.isoformat(),
+            "notes": entry.notes,
+            "created_at": entry.created_at.isoformat() + 'Z'
+        }, "Weight entry updated successfully")
+    
+    except Exception as e:
+        db.session.rollback()
+        return error_response(
+            "Weight Entry Update Error",
+            "An error occurred while updating weight entry",
+            "WEIGHT_ENTRY_UPDATE_ERROR",
+            500
+        )
+
+
+@bp.route('/<user_id>/weight/<entry_id>', methods=['DELETE'])
+@token_required
+def delete_weight_entry(token_user_id, user_id, entry_id):
+    """Delete a weight entry.
+    
+    Returns:
+        200: Deletion success
+        401: Unauthorized
+        404: Entry or user not found
+    """
+    try:
+        # Security check
+        if token_user_id != user_id:
+            return forbidden_response("You can only delete your own weight entries")
+        
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return not_found_response("User")
+        
+        entry = db.session.query(WeightEntry).filter(
+            and_(
+                WeightEntry.entry_id == entry_id,
+                WeightEntry.user_id == user_id
+            )
+        ).first()
+        if not entry:
+            return not_found_response("Weight entry")
+        
+        db.session.delete(entry)
+        db.session.commit()
+        
+        return success_response(None, "Weight entry deleted successfully")
+    
+    except Exception as e:
+        db.rollback()
+        return error_response(
+            "Weight Entry Delete Error",
+            "An error occurred while deleting weight entry",
+            "WEIGHT_ENTRY_DELETE_ERROR",
             500
         )

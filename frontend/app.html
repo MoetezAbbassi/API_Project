@@ -5,67 +5,246 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fitness Tracker</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <!-- Sidebar Navigation -->
   <nav class="sidebar">
-    <div class="logo">Fitness 💪</div>
+    <div class="logo">🏋️ Fitness</div>
     <ul class="nav-menu">
-      <li><a href="#" class="nav-link active" data-tab="dashboard">Dashboard</a></li>
-      <li><a href="#" class="nav-link" data-tab="exercises">Exercises</a></li>
-      <li><a href="#" class="nav-link" data-tab="scanner">Machine Scanner</a></li>
-      <li><a href="#" class="nav-link" data-tab="workouts">Workouts</a></li>
-      <li><a href="#" class="nav-link" data-tab="meals">Meals</a></li>
-      <li><a href="#" class="nav-link" data-tab="goals">Goals</a></li>
+      <li><a href="#" class="nav-link active" data-tab="dashboard">📊 Dashboard</a></li>
+      <li><a href="#" class="nav-link" data-tab="workouts">💪 Workouts</a></li>
+      <li><a href="#" class="nav-link" data-tab="meals">🍽️ Meals</a></li>
+      <li><a href="#" class="nav-link" data-tab="exercises">📋 Exercises</a></li>
+      <li><a href="#" class="nav-link" data-tab="scanner">📷 ML Scanner</a></li>
+      <li><a href="#" class="nav-link" data-tab="profile">👤 Profile</a></li>
     </ul>
     <div class="sidebar-footer">
+      <div class="user-info">
+        <span id="sidebarUsername">User</span>
+      </div>
       <button id="logoutBtn" class="btn btn-danger w-full">Logout</button>
     </div>
   </nav>
 
+  <!-- Main Content -->
   <div class="container">
     <div id="message" class="message hidden"></div>
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD TAB -->
     <div id="dashboard" class="tab-content active">
-      <header><h1>Dashboard</h1></header>
-      <div class="main-content">
-        <div class="card">
-          <h3>Total Workouts</h3>
-          <div class="card-value" id="totalWorkouts">0</div>
+      <header>
+        <h1>Dashboard</h1>
+        <p class="subtitle">Welcome back! Here's your fitness overview.</p>
+      </header>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">💪</div>
+          <div class="stat-info">
+            <span class="stat-value" id="totalWorkouts">0</span>
+            <span class="stat-label">Workouts</span>
+          </div>
         </div>
-        <div class="card">
-          <h3>Total Calories</h3>
-          <div class="card-value" id="totalCalories">0</div>
-        </div>
-        <div class="card">
-          <h3>Active Goals</h3>
-          <div class="card-value" id="activeGoals">0</div>
-        </div>
-        <div class="card">
-          <h3>Exercises</h3>
-          <div class="card-value" id="totalExercises">0</div>
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-info">
+            <span class="stat-value" id="totalCaloriesBurned">0</span>
+            <span class="stat-label">Calories Burned</span>
+          </div>
         </div>
       </div>
-      <div class="list-container">
-        <h2>Recent Workouts</h2>
-        <div id="recentWorkouts"></div>
+
+      <!-- Charts Grid -->
+      <div class="charts-grid">
+        <!-- Calories Chart -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <h3>📈 Calories Overview (Last 7 Days)</h3>
+            <select id="chartPeriod" class="chart-period-select">
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
+          <div class="chart-container">
+            <canvas id="caloriesChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Weight Chart -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <h3>⚖️ Weight Progress (Last 90 Days)</h3>
+          </div>
+          <div class="chart-container">
+            <canvas id="weightDashboardChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <h3>� Workout Plan</h3>
+        <div id="recentWorkouts" class="activity-list">
+          <div class="loading">Loading...</div>
+        </div>
       </div>
     </div>
 
-    <!-- EXERCISES -->
+    <!-- WORKOUTS TAB -->
+    <div id="workouts" class="tab-content">
+      <header>
+        <h1>Workouts</h1>
+        <p class="subtitle">Track and manage your workout sessions</p>
+      </header>
+
+      <!-- Create Workout Form -->
+      <div class="card">
+        <h3>➕ Create New Workout</h3>
+        <form id="createWorkoutForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Workout Name</label>
+              <input type="text" id="workoutName" placeholder="e.g., Morning Gym Session" required>
+            </div>
+            <div class="form-group">
+              <label>Workout Type</label>
+              <select id="workoutType" required>
+                <option value="">Select type</option>
+                <option value="strength">Strength</option>
+                <option value="cardio">Cardio</option>
+                <option value="flexibility">Flexibility</option>
+                <option value="mixed">Mixed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="workoutDate">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <input type="text" id="workoutNotes" placeholder="Add any notes...">
+          </div>
+          <button type="submit" class="btn btn-primary">Create Workout</button>
+        </form>
+      </div>
+
+      <!-- Current Workout -->
+      <div id="currentWorkoutSection" class="card hidden">
+        <div class="workout-header">
+          <h3>🏋️ Current Workout</h3>
+          <span id="currentWorkoutType" class="badge">-</span>
+        </div>
+        <div id="currentWorkoutExercises" class="exercise-list"></div>
+        <div class="workout-actions">
+          <button id="completeWorkoutBtn" class="btn btn-success">Complete Workout</button>
+          <button id="cancelWorkoutBtn" class="btn btn-danger">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Workout History -->
+      <div class="card">
+        <h3>📜 Workout History</h3>
+        <div id="workoutsList" class="list-container">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKOUT DETAILS MODAL -->
+    <div id="workoutDetailsModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Workout Details</h2>
+          <button type="button" class="modal-close" onclick="App.closeModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="workout-detail-header">
+            <h3 id="workoutDetailName"></h3>
+            <p id="workoutDetailType"></p>
+            <p id="workoutDetailDate"></p>
+            <span id="workoutDetailStatus" class="badge"></span>
+          </div>
+          <div>
+            <h4>Exercises in this workout:</h4>
+            <div id="workoutDetailExercises" class="exercises-list">
+              <div class="loading">Loading exercises...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXERCISES TAB -->
     <div id="exercises" class="tab-content">
-      <header><h1>Exercises</h1></header>
-      <div class="form-section">
-        <h2>Filter Exercises</h2>
+      <header>
+        <h1>Exercise Library</h1>
+        <p class="subtitle">Browse exercises by muscle group and difficulty</p>
+      </header>
+
+      <!-- Create Exercise Form -->
+      <div class="card">
+        <h3>➕ Add New Exercise</h3>
+        <form id="createExerciseForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Exercise Name</label>
+              <input type="text" id="newExerciseName" placeholder="e.g., Barbell Bench Press" required>
+            </div>
+            <div class="form-group">
+              <label>Primary Muscle Group</label>
+              <select id="newExerciseMuscle" required>
+                <option value="">Select Muscle Group</option>
+                <option value="chest">Chest</option>
+                <option value="back">Back</option>
+                <option value="legs">Legs</option>
+                <option value="shoulders">Shoulders</option>
+                <option value="arms">Arms</option>
+                <option value="core">Core</option>
+                <option value="cardio">Cardio</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Difficulty</label>
+              <select id="newExerciseDifficulty" required>
+                <option value="">Select Difficulty</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label>Description</label>
+              <textarea id="newExerciseDescription" placeholder="Describe the exercise..." rows="3"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Typical Calories per Minute</label>
+              <input type="number" id="newExerciseCalories" placeholder="8.0" step="0.1" min="0" value="8.0">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Add Exercise</button>
+        </form>
+      </div>
+
+      <!-- Filters -->
+      <div class="card">
+        <h3>🔍 Filter Exercises</h3>
         <div class="form-row">
           <div class="form-group">
             <label>Search</label>
-            <input type="text" id="exerciseSearch" placeholder="Search by name...">
+            <input type="text" id="exerciseSearch" placeholder="Search exercises..." />
           </div>
           <div class="form-group">
             <label>Muscle Group</label>
             <select id="muscleFilter">
-              <option value="">All</option>
+              <option value="">All Muscles</option>
               <option value="chest">Chest</option>
               <option value="back">Back</option>
               <option value="legs">Legs</option>
@@ -75,155 +254,419 @@
               <option value="cardio">Cardio</option>
             </select>
           </div>
-        </div>
-      </div>
-      <div class="list-container">
-        <div id="exercisesList"></div>
-      </div>
-    </div>
-
-    <!-- MACHINE SCANNER -->
-    <div id="scanner" class="tab-content">
-      <header><h1>Machine Scanner</h1></header>
-      <div class="form-section">
-        <h2>Identify Gym Equipment</h2>
-        <p class="muted">Upload a photo of gym equipment to identify it and see suggested exercises.</p>
-
-        <div class="upload-box" id="uploadBox">
-          <p style="font-size: 40px; margin: 0;">📷</p>
-          <p><strong>Click to upload or drag & drop</strong></p>
-          <input type="file" id="imageInput" accept="image/*">
-        </div>
-
-        <div id="preview" class="preview hidden">
-          <img id="previewImg" src="" alt="Preview">
-        </div>
-
-        <div id="predictionResult" class="prediction-result hidden">
-          <h3>Equipment Identified</h3>
-          <div class="equipment-info">
-            <p id="machineName" style="font-size: 24px; font-weight: bold; margin: 10px 0;">Equipment</p>
-            <div class="confidence" id="confidenceScore">0%</div>
-          </div>
-
-          <h3 style="margin-top: 30px; margin-bottom: 15px;">Suggested Exercises</h3>
-          <p class="muted">Click an exercise to see details and add it to your workout</p>
-
-          <div id="exerciseSuggestions" class="exercise-suggestions">
-            <!-- Exercise cards will appear here -->
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- WORKOUTS -->
-    <div id="workouts" class="tab-content">
-      <header><h1>Workouts</h1></header>
-      <div class="form-section">
-        <h2>Create New Workout</h2>
-        <form id="workoutForm">
           <div class="form-group">
-            <label>Workout Name</label>
-            <input type="text" id="workoutName" placeholder="e.g., Morning Run" required>
+            <label>Difficulty</label>
+            <select id="difficultyFilter">
+              <option value="">All Levels</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" id="workoutDate" required>
-            </div>
-            <div class="form-group">
-              <label>Duration (minutes)</label>
-              <input type="number" id="workoutDuration" placeholder="45 min" min="1" required>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Notes</label>
-            <textarea id="workoutNotes" placeholder="How did it feel?" rows="3"></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary">Create Workout</button>
-        </form>
+        </div>
       </div>
-      <div class="list-container">
-        <h2>Your Workouts</h2>
-        <div id="workoutsList"></div>
+
+      <!-- Exercise List -->
+      <div class="card">
+        <h3>📋 Exercises</h3>
+        <div id="exercisesList" class="exercises-grid">
+          <div class="loading">Loading...</div>
+        </div>
+        <div id="exercisesPagination" class="pagination"></div>
       </div>
     </div>
 
-    <!-- MEALS -->
+    <!-- MEALS TAB -->
     <div id="meals" class="tab-content">
-      <header><h1>Meals</h1></header>
-      <div class="form-section">
-        <h2>Log Meal</h2>
-        <form id="mealForm">
-          <div class="form-group">
-            <label>Meal Name</label>
-            <input type="text" id="mealName" placeholder="e.g., Chicken Rice" required>
+      <header>
+        <h1>Meal Tracker</h1>
+        <p class="subtitle">Log your meals and track nutrition</p>
+      </header>
+
+      <!-- Today's Summary -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-info">
+            <span class="stat-value" id="todayCalories">0</span>
+            <span class="stat-label">Calories Today</span>
           </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🥩</div>
+          <div class="stat-info">
+            <span class="stat-value" id="todayProtein">0g</span>
+            <span class="stat-label">Protein</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🍞</div>
+          <div class="stat-info">
+            <span class="stat-value" id="todayCarbs">0g</span>
+            <span class="stat-label">Carbs</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🥑</div>
+          <div class="stat-info">
+            <span class="stat-value" id="todayFats">0g</span>
+            <span class="stat-label">Fats</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Meal Options -->
+      <div class="card">
+        <h3>➕ Log a Meal</h3>
+        <div class="meal-log-options">
+          <button class="btn btn-primary meal-option-btn" id="logMealManualBtn">
+            <span class="btn-icon">✏️</span>
+            <span>Add Manually</span>
+          </button>
+          <button class="btn btn-secondary meal-option-btn" id="logMealPhotoBtn">
+            <span class="btn-icon">📷</span>
+            <span>Scan Photo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Manual Meal Form (hidden by default) -->
+      <div id="manualMealForm" class="card hidden">
+        <div class="card-header">
+          <h3>✏️ Add Meal Manually</h3>
+          <button class="btn btn-small btn-secondary" id="closeMealFormBtn">✕ Close</button>
+        </div>
+        <form id="createMealForm">
           <div class="form-row">
-            <div class="form-group">
-              <label>Calories</label>
-              <input type="number" id="mealCalories" placeholder="500" min="1" required>
-            </div>
             <div class="form-group">
               <label>Meal Type</label>
               <select id="mealType" required>
-                <option value="">Select</option>
-                <option value="breakfast">Breakfast</option>
-                <option value="lunch">Lunch</option>
-                <option value="dinner">Dinner</option>
-                <option value="snack">Snack</option>
+                <option value="">Select Type</option>
+                <option value="breakfast">🌅 Breakfast</option>
+                <option value="lunch">☀️ Lunch</option>
+                <option value="dinner">🌙 Dinner</option>
+                <option value="snack">🍿 Snack</option>
+                <option value="other">📦 Other</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="mealDate" required>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary">Log Meal</button>
+          
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <input type="text" id="mealNotes" placeholder="e.g., Post-workout meal">
+          </div>
+          
+          <!-- Food Items -->
+          <div class="meal-items-section">
+            <div class="section-header">
+              <h4>Food Items</h4>
+              <button type="button" class="btn btn-small btn-primary" id="addFoodItemBtn">+ Add Item</button>
+            </div>
+            
+            <div id="foodItemsList" class="food-items-list">
+              <!-- Food items will be added here dynamically -->
+            </div>
+            
+            <!-- Food Search -->
+            <div class="food-search-container">
+              <input type="text" id="foodSearchInput" placeholder="Search foods (e.g., chicken, rice, salad)..." autocomplete="off">
+              <div id="foodSearchResults" class="food-search-results hidden"></div>
+            </div>
+          </div>
+          
+          <!-- Totals Preview -->
+          <div class="meal-totals-preview">
+            <h4>Meal Totals</h4>
+            <div class="totals-grid">
+              <div class="total-item">
+                <span class="total-value" id="previewCalories">0</span>
+                <span class="total-label">Calories</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="previewProtein">0g</span>
+                <span class="total-label">Protein</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="previewCarbs">0g</span>
+                <span class="total-label">Carbs</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="previewFats">0g</span>
+                <span class="total-label">Fats</span>
+              </div>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-primary w-full">Save Meal</button>
         </form>
       </div>
-      <div class="list-container">
-        <h2>Meal History</h2>
-        <div id="mealsList"></div>
+
+      <!-- Photo Meal Scanner (hidden by default) -->
+      <div id="photoMealForm" class="card hidden">
+        <div class="card-header">
+          <h3>📷 Scan Meal Photo</h3>
+          <button class="btn btn-small btn-secondary" id="closePhotoFormBtn">✕ Close</button>
+        </div>
+        
+        <div class="upload-area" id="mealUploadArea">
+          <div class="upload-icon">📷</div>
+          <p><strong>Click to upload</strong> or drag & drop</p>
+          <p class="upload-hint">Take a photo of your meal</p>
+          <input type="file" id="mealImage" accept="image/*" hidden />
+        </div>
+        
+        <div id="mealImagePreview" class="image-preview hidden">
+          <img id="mealPreviewImg" src="" alt="Meal Preview" />
+          <button id="clearMealImage" class="btn btn-small btn-danger">✕ Clear</button>
+        </div>
+        
+        <div id="mealAnalysisResult" class="analysis-result hidden">
+          <h4>Detected Foods</h4>
+          <div id="detectedFoodsList" class="detected-foods-list"></div>
+          
+          <div class="meal-totals-preview">
+            <h4>Estimated Nutrition</h4>
+            <div class="totals-grid">
+              <div class="total-item">
+                <span class="total-value" id="scanCalories">0</span>
+                <span class="total-label">Calories</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="scanProtein">0g</span>
+                <span class="total-label">Protein</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="scanCarbs">0g</span>
+                <span class="total-label">Carbs</span>
+              </div>
+              <div class="total-item">
+                <span class="total-value" id="scanFats">0g</span>
+                <span class="total-label">Fats</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>Meal Type</label>
+              <select id="scanMealType" required>
+                <option value="breakfast">🌅 Breakfast</option>
+                <option value="lunch">☀️ Lunch</option>
+                <option value="dinner">🌙 Dinner</option>
+                <option value="snack">🍿 Snack</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="scanMealDate">
+            </div>
+          </div>
+          
+          <button type="button" class="btn btn-primary w-full" id="saveScanMealBtn">Save Meal</button>
+        </div>
+        
+        <div id="analyzingSpinner" class="analyzing-spinner hidden">
+          <div class="spinner"></div>
+          <p>Analyzing your meal...</p>
+        </div>
+      </div>
+
+      <!-- Meal History -->
+      <div class="card">
+        <h3>📜 Meal History</h3>
+        <div id="mealsList" class="meals-list">
+          <div class="loading">Loading...</div>
+        </div>
+        <div id="mealsPagination" class="pagination"></div>
       </div>
     </div>
 
-    <!-- GOALS -->
-    <div id="goals" class="tab-content">
-      <header><h1>Goals</h1></header>
-      <div class="form-section">
-        <h2>Set New Goal</h2>
-        <form id="goalForm">
-          <div class="form-group">
-            <label>Goal Title</label>
-            <input type="text" id="goalTitle" placeholder="e.g., Run 5K" required>
+    <!-- ML SCANNER TAB -->
+    <div id="scanner" class="tab-content">
+      <header>
+        <h1>ML Equipment Scanner</h1>
+        <p class="subtitle">Upload a photo of gym equipment to identify it and get exercise suggestions</p>
+      </header>
+
+      <!-- Upload Section -->
+      <div class="card">
+        <h3>📷 Scan Equipment</h3>
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📷</div>
+          <p><strong>Click to upload</strong> or drag & drop</p>
+          <p class="upload-hint">Supports: JPG, PNG, GIF, WEBP</p>
+          <input type="file" id="equipmentImage" accept="image/*" hidden />
+        </div>
+
+        <!-- Image Preview -->
+        <div id="imagePreview" class="image-preview hidden">
+          <img id="previewImg" src="" alt="Preview" />
+          <button id="clearImage" class="btn btn-small btn-danger">✕ Clear</button>
+        </div>
+
+        <!-- Prediction Result -->
+        <div id="predictionResult" class="prediction-result hidden">
+          <div class="equipment-detected">
+            <h4>Equipment Detected</h4>
+            <div class="equipment-name" id="equipmentName">-</div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" id="confidenceFill"></div>
+            </div>
+            <span class="confidence-text" id="confidenceText">0% confidence</span>
           </div>
-          <div class="form-group">
-            <label>Description</label>
-            <textarea id="goalDescription" placeholder="Describe your goal..." rows="2"></textarea>
+
+          <div class="muscle-targets">
+            <h4>Target Muscles</h4>
+            <div id="targetMuscles" class="muscle-tags"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggested Exercises -->
+      <div id="suggestedExercisesCard" class="card hidden">
+        <h3>💡 Suggested Exercises</h3>
+        <p class="subtitle">Click "Add to Workout" to add an exercise to your current workout</p>
+        <div id="suggestedExercises" class="exercises-grid"></div>
+      </div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div id="profile" class="tab-content">
+      <header>
+        <h1>Profile Settings</h1>
+        <p class="subtitle">Manage your account and fitness profile</p>
+      </header>
+
+      <!-- Profile Info -->
+      <div class="card">
+        <h3>👤 Your Profile</h3>
+        <form id="profileForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Username</label>
+              <input type="text" id="profileUsername" disabled />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="profileEmail" disabled />
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Target Date</label>
-              <input type="date" id="goalDate" required>
+              <label>Age</label>
+              <input type="number" id="profileAge" placeholder="Your age" min="13" max="120" />
             </div>
             <div class="form-group">
-              <label>Status</label>
-              <select id="goalStatus" required>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="onhold">On Hold</option>
-              </select>
+              <label>Height (cm)</label>
+              <input type="number" id="profileHeight" placeholder="e.g., 175" />
             </div>
           </div>
-          <button type="submit" class="btn btn-primary">Create Goal</button>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Current Weight (kg)</label>
+              <input type="number" id="profileWeight" placeholder="e.g., 70" step="0.1" />
+            </div>
+            <div class="form-group">
+              <label>Target Weight (kg)</label>
+              <input type="number" id="profileTargetWeight" placeholder="e.g., 65" step="0.1" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Update Profile</button>
         </form>
       </div>
-      <div class="list-container">
-        <h2>Your Goals</h2>
-        <div id="goalsList"></div>
+
+      <!-- Weight Tracking -->
+      <div class="card">
+        <h3>⚖️ Weight Tracking</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Weight (kg)</label>
+            <input type="number" id="newWeightInput" placeholder="Enter weight" step="0.1" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="newWeightDate" />
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <input type="text" id="newWeightNotes" placeholder="Add notes..." />
+          </div>
+        </div>
+        <button id="addWeightBtn" class="btn btn-success">Add Weight Entry</button>
+      </div>
+
+      <!-- Weight Chart -->
+      <div class="card chart-card">
+        <div class="card-header">
+          <h3>📊 Weight Progress</h3>
+        </div>
+        <div class="chart-container">
+          <canvas id="weightChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card">
+        <h3>📊 Fitness Statistics</h3>
+        <div id="userStats" class="stats-list">
+          <div class="loading">Loading...</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Add to Workout Modal -->
+  <div id="addToWorkoutModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add to Workout</h3>
+        <button class="modal-close" id="closeModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="modalExerciseName" class="exercise-name"></div>
+        <form id="addToWorkoutForm">
+          <input type="hidden" id="modalExerciseId" />
+          <div class="form-group">
+            <label>Select Workout</label>
+            <select id="selectWorkout" required>
+              <option value="">Loading workouts...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Sets</label>
+              <input type="number" id="modalSets" value="3" min="1" required />
+            </div>
+            <div class="form-group">
+              <label>Reps</label>
+              <input type="number" id="modalReps" value="10" min="1" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Weight</label>
+              <input type="number" id="modalWeight" value="0" min="0" step="0.5" />
+            </div>
+            <div class="form-group">
+              <label>Unit</label>
+              <select id="modalWeightUnit">
+                <option value="kg">kg</option>
+                <option value="lbs">lbs</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-full">Add to Workout</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=2"></script>
+  <script src="js/api.js?v=2"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

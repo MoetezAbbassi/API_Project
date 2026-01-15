@@ -46,11 +46,87 @@ def get_date_range(period: str) -> tuple:
     return start_date, end_date
 
 
+@bp.route('/<user_id>/summary', methods=['GET'])
+@decorators.token_required
+def get_dashboard_summary(token_user_id, user_id):
+    """
+    Get dashboard summary with key statistics (simplified endpoint)
+    
+    Returns summary stats needed for dashboard display:
+    - total_workouts: Number of completed workouts
+    - total_calories_burned: Total calories burned
+    - total_calories_consumed: Total calories consumed
+    - active_goals: Number of active goals
+    """
+    try:
+        # Verify user is accessing their own data
+        if token_user_id != user_id:
+            return responses.unauthorized_response("Cannot access other user's data")
+        
+        # Verify user exists
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return responses.not_found_response("User not found")
+        
+        # Get period (default: last 7 days)
+        period = request.args.get('period', 'week', type=str)
+        start_date, end_date = get_date_range(period)
+        
+        # Get completed workouts for period
+        workouts = db.session.query(Workout).filter(
+            Workout.user_id == user_id,
+            Workout.workout_date >= start_date,
+            Workout.workout_date <= end_date,
+            Workout.status == 'completed'
+        ).all()
+        
+        # Get meals for period
+        meals = db.session.query(Meal).filter(
+            Meal.user_id == user_id,
+            Meal.meal_date >= start_date,
+            Meal.meal_date <= end_date
+        ).all()
+        
+        # Get active goals
+        active_goals = db.session.query(Goal).filter_by(
+            user_id=user_id, 
+            status='active'
+        ).all()
+        
+        # Calculate totals
+        total_calories_burned = sum(w.total_calories_burned or 0 for w in workouts)
+        total_calories_consumed = sum(m.total_calories for m in meals)
+        
+        # Return clean summary data for frontend
+        summary_data = {
+            "total_workouts": len(workouts),
+            "total_calories_burned": round(total_calories_burned, 2),
+            "total_calories_consumed": round(total_calories_consumed, 2),
+            "active_goals": len(active_goals),
+            "period": period
+        }
+        
+        return responses.success_response(
+            summary_data,
+            "Dashboard summary retrieved successfully"
+        )
+    
+    except Exception as e:
+        import traceback
+        return responses.error_response(
+            "Error",
+            str(e),
+            "DASHBOARD_SUMMARY_ERROR",
+            500
+        )
+
+
 @bp.route('/<user_id>', methods=['GET'])
 @decorators.token_required
 def get_dashboard(token_user_id, user_id):
     """
     Get comprehensive dashboard with aggregated fitness data
+    This is a detailed endpoint for full dashboard display
     
     Query params:
     - period: Time period (week, month, year - default: week)
@@ -190,9 +266,121 @@ def get_dashboard(token_user_id, user_id):
         )
     
     except Exception as e:
+        import traceback
         return responses.error_response(
             "Database error",
             str(e),
             "DASHBOARD_GET_ERROR",
+            500
+        )
+
+
+@bp.route('/<user_id>/calories-graph', methods=['GET'])
+@decorators.token_required
+def get_calories_graph(token_user_id, user_id):
+    """
+    Get daily calories consumed and burned for line graph visualization
+    
+    Query params:
+    - days: Number of days to include (default 7, max 90)
+    - start_date: Start date (YYYY-MM-DD) - overrides days param
+    - end_date: End date (YYYY-MM-DD) - defaults to today
+    
+    Response (200):
+    {
+        "success": true,
+        "data": {
+            "labels": ["2026-01-07", "2026-01-08", ...],
+            "calories_burned": [450, 380, 520, ...],
+            "calories_consumed": [2100, 1850, 2200, ...]
+        }
+    }
+    """
+    try:
+        # Verify user exists
+        user = db.session.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return responses.not_found_response("User not found")
+        
+        # Parse query parameters
+        days = min(request.args.get('days', 7, type=int), 90)  # Max 90 days
+        end_date_str = request.args.get('end_date', type=str)
+        start_date_str = request.args.get('start_date', type=str)
+        
+        # Determine date range
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except:
+                end_date = datetime.now().date()
+        else:
+            end_date = datetime.now().date()
+        
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except:
+                start_date = end_date - timedelta(days=days - 1)
+        else:
+            start_date = end_date - timedelta(days=days - 1)
+        
+        # Get workouts in date range (for calories burned)
+        workouts = db.session.query(Workout).filter(
+            Workout.user_id == user_id,
+            Workout.workout_date >= start_date,
+            Workout.workout_date <= end_date
+        ).all()
+        
+        # Get meals in date range (for calories consumed)
+        meals = db.session.query(Meal).filter(
+            Meal.user_id == user_id,
+            Meal.meal_date >= start_date,
+            Meal.meal_date <= end_date
+        ).all()
+        
+        # Build daily data
+        daily_data = {}
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            daily_data[date_str] = {
+                "burned": 0,
+                "consumed": 0
+            }
+            current_date += timedelta(days=1)
+        
+        # Aggregate workout calories by date
+        for workout in workouts:
+            date_str = workout.workout_date.strftime('%Y-%m-%d')
+            if date_str in daily_data:
+                daily_data[date_str]["burned"] += workout.total_calories_burned or 0
+        
+        # Aggregate meal calories by date
+        for meal in meals:
+            date_str = meal.meal_date.strftime('%Y-%m-%d')
+            if date_str in daily_data:
+                daily_data[date_str]["consumed"] += meal.total_calories or 0
+        
+        # Format for chart.js / line graph
+        labels = sorted(daily_data.keys())
+        calories_burned = [round(daily_data[d]["burned"], 2) for d in labels]
+        calories_consumed = [round(daily_data[d]["consumed"], 2) for d in labels]
+        
+        graph_data = {
+            "labels": labels,
+            "calories_burned": calories_burned,
+            "calories_consumed": calories_consumed
+        }
+        
+        return responses.success_response(
+            graph_data,
+            "Calories graph data retrieved successfully"
+        )
+    
+    except Exception as e:
+        return responses.error_response(
+            "Database error",
+            str(e),
+            "CALORIES_GRAPH_ERROR",
             500
         )

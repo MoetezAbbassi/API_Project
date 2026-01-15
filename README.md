@@ -4,9 +4,9 @@ A comprehensive personal fitness tracking REST API built with Flask and SQLite. 
 
 ## 🎯 Project Overview
 
-The Fitness Trainer API is a full-featured backend system designed to support fitness and wellness applications. It provides 46 endpoints across 11 modules covering:
+The Fitness Trainer API is a full-featured backend system designed to support fitness and wellness applications. It provides 48 endpoints across 12 modules covering:
 
-- **Authentication & Authorization**: User registration, login, JWT token management
+- **Authentication & Authorization**: User registration, login, JWT token management, Google OAuth 2.0
 - **User Management**: Profile management, fitness statistics, progress tracking
 - **Workout Tracking**: Create, log, and analyze workouts with exercise-level detail
 - **Nutrition Logging**: Track meals, monitor macros, calculate daily nutrition
@@ -16,6 +16,7 @@ The Fitness Trainer API is a full-featured backend system designed to support fi
 - **Calendar Planning**: Plan workouts and events across your calendar
 - **Dashboard Analytics**: Comprehensive metrics and visualizations
 - **ML Equipment Recognition**: AI-powered equipment identification from images
+- **Email Verification**: Secure 2FA with email-based verification codes
 - **Comprehensive Testing**: Full test suite with 15+ test cases
 
 ## 🚀 Quick Start
@@ -52,14 +53,16 @@ curl http://localhost:5000/api/health
 
 ### 46 Total Endpoints
 
-#### Authentication (5 endpoints)
+#### Authentication (7 endpoints)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | User login, get JWT token |
+| POST | `/api/auth/login` | User login with 2FA verification |
+| POST | `/api/auth/verify-login` | Verify 2FA code and get token |
 | POST | `/api/auth/logout` | Logout (invalidate token) |
 | GET | `/api/auth/verify` | Verify token validity |
 | POST | `/api/auth/refresh-token` | Refresh JWT token (24h expiry) |
+| POST | `/api/auth/google/login` | Login with Google OAuth 2.0 |
 
 #### Users (5 endpoints)
 | Method | Endpoint | Description |
@@ -149,8 +152,9 @@ curl http://localhost:5000/api/health
 
 ## 🔐 Authentication
 
-The API uses JWT (JSON Web Tokens) for authentication:
+The API supports both traditional and OAuth authentication:
 
+### JWT Authentication
 ```bash
 # Register new user
 curl -X POST http://localhost:5000/api/auth/register \
@@ -161,7 +165,7 @@ curl -X POST http://localhost:5000/api/auth/register \
     "password": "SecurePass123"
   }'
 
-# Login to get token
+# Login to get 2FA verification
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -169,21 +173,42 @@ curl -X POST http://localhost:5000/api/auth/login \
     "password": "SecurePass123"
   }'
 
+# Verify 2FA code to get token
+curl -X POST http://localhost:5000/api/auth/verify-login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "uuid",
+    "verification_code": "123456"
+  }'
+
 # Use token in subsequent requests
 curl -X GET http://localhost:5000/api/users/{user_id} \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
-**Token Details:**
-- Format: HS256 JSON Web Token
-- Expiry: 24 hours
-- Refresh: POST `/api/auth/refresh-token`
-- Header: `Authorization: Bearer <token>`
+### Google OAuth 2.0
+```bash
+# Frontend sends Google ID token (handled automatically by Google Sign-In button)
+curl -X POST http://localhost:5000/api/auth/google/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "credential": "google_id_token_from_signin_button"
+  }'
+
+# Returns JWT token directly - no 2FA needed for OAuth
+```
+
+**Authentication Features:**
+- **JWT Tokens**: HS256 signed, 24-hour expiry
+- **2FA via Email**: 6-digit verification codes sent to email
+- **Google OAuth 2.0**: One-click sign-in with automatic account creation
+- **Password Security**: Bcrypt hashing with 12-round salt
+- **Refresh Tokens**: Extend sessions without re-authenticating
 
 ## 🗄️ Database Schema
 
-**11 Core Models:**
-1. **User** - User accounts with profile data
+**12 Core Models:**
+1. **User** - User accounts with profile data, Google OAuth support
 2. **Goal** - Fitness goals with progress tracking
 3. **Exercise** - Exercise reference library (50+ pre-loaded)
 4. **Workout** - Workout sessions
@@ -194,6 +219,12 @@ curl -X GET http://localhost:5000/api/users/{user_id} \
 9. **ProgramWorkout** - Weekly schedule for programs
 10. **CalendarEvent** - Calendar entries for planning
 11. **MLPrediction** - ML model predictions
+12. **EmailVerificationCode** - 2FA verification codes
+
+**Recent Schema Updates:**
+- Added `google_id` field to User model for Google OAuth support
+- Added `profile_picture` field for storing user profile images
+- Added `EmailVerificationCode` model for secure email-based 2FA
 
 **Data Relationships:**
 - User → Many Goals, Workouts, Meals, Programs
@@ -222,7 +253,32 @@ JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
 
 # CORS
 CORS_ORIGINS=http://localhost:3000,http://localhost:5000
+
+# Email Configuration (for 2FA verification codes)
+SMTP_SERVER=smtp.mailersend.net
+SMTP_PORT=587
+SMTP_USERNAME=your_mailersend_username
+SMTP_PASSWORD=your_mailersend_password
+SENDER_EMAIL=noreply@yourdomain.com
+SENDER_NAME=Fitness Tracker
+
+# Google OAuth 2.0 Configuration
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_client_secret
 ```
+
+**Google OAuth Setup:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable Google+ API and Google Identity Services API
+4. Create OAuth 2.0 credentials (Web application)
+5. Add Authorized JavaScript origins:
+   - `http://localhost:5000`
+   - `http://127.0.0.1:5000`
+6. Add Authorized redirect URIs:
+   - `http://localhost:5000/api/auth/google/callback`
+   - `http://localhost:5000/app`
+7. Copy Client ID and Client Secret to `.env`
 
 ## 📁 Project Structure
 
@@ -310,9 +366,11 @@ pytest tests/ -vv --tb=short
 
 ## 🔑 Key Features
 
-✅ **46 API Endpoints** across 11 modules
+✅ **48 API Endpoints** across 12 modules
 ✅ **JWT Authentication** with 24-hour tokens
-✅ **SQLite Database** with 11 models
+✅ **Google OAuth 2.0** with one-click sign-in
+✅ **Email-based 2FA** with 6-digit verification codes
+✅ **SQLite Database** with 12 models
 ✅ **Password Security** with bcrypt (12-round salt)
 ✅ **Calorie Tracking** with formula-based calculations
 ✅ **Goal Progress** with percentage tracking
@@ -325,6 +383,7 @@ pytest tests/ -vv --tb=short
 ✅ **Pagination Support** on list endpoints
 ✅ **Input Validation** on all endpoints
 ✅ **CORS Support** for frontend integration
+✅ **Profile Pictures** for Google OAuth users
 
 ## 📊 Example API Usage
 
@@ -417,8 +476,12 @@ pytest tests/ -v
 - **SQLAlchemy 2.0.23** - ORM
 - **python-dotenv** - Environment variables
 - **bcrypt** - Password hashing
+- **google-auth** - Google OAuth 2.0 verification
+- **google-auth-oauthlib** - Google OAuth library
+- **google-auth-httplib2** - Google OAuth HTTP client
 - **pytest** - Testing framework
 - **pytest-cov** - Code coverage
+- **requests** - HTTP client for OAuth token exchange
 
 ## 🔒 Security Features
 
@@ -561,6 +624,20 @@ For issues, questions, or suggestions, check:
 
 ---
 
-**API Version**: 1.0.0  
-**Last Updated**: January 2026  
-**Status**: Complete and Production-Ready ✅
+**API Version**: 1.0.1  
+**Last Updated**: January 15, 2026  
+**Status**: Production-Ready with OAuth 2.0 ✅
+
+## 📝 Recent Updates (January 2026)
+
+- ✅ Added Google OAuth 2.0 authentication
+- ✅ Implemented email-based 2FA for login security
+- ✅ Extended User model with `google_id` and `profile_picture` fields
+- ✅ Created `/api/auth/google/login` endpoint
+- ✅ Integrated Google Sign-In button in frontend
+- ✅ Added email verification service with SMTP support
+- ✅ Fixed frontend form visibility (login/register/verify separation)
+- ✅ Updated meal item positioning in meal log (z-index fix)
+- ✅ Removed unnecessary test files and cleaned up project structure
+- ✅ Added venv311 to .gitignore
+- ✅ Installed and verified all Google authentication dependencies

@@ -44,6 +44,7 @@ def list_exercises():
     
     Query params:
     - muscle: Filter by muscle group (chest, back, legs, shoulders, arms, core, cardio)
+    - muscle_group: Alias for muscle
     - difficulty: Filter by difficulty level (beginner, intermediate, advanced)
     - page: Page number (default 1)
     - per_page: Items per page (default 10)
@@ -51,7 +52,7 @@ def list_exercises():
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
-        muscle = request.args.get('muscle', type=str)
+        muscle = request.args.get('muscle', type=str) or request.args.get('muscle_group', type=str)
         difficulty = request.args.get('difficulty', type=str)
         
         query = db.session.query(Exercise)
@@ -85,6 +86,25 @@ def list_exercises():
             "Database error",
             str(e),
             "EXERCISE_LIST_ERROR",
+            500
+        )
+
+
+@bp.route('/muscle-groups', methods=['GET'])
+def get_muscle_groups():
+    """
+    Get list of available muscle groups
+    """
+    try:
+        return responses.success_response(
+            {"muscle_groups": list(MUSCLE_GROUPS)},
+            "Muscle groups retrieved successfully"
+        )
+    except Exception as e:
+        return responses.error_response(
+            "Error",
+            str(e),
+            "MUSCLE_GROUPS_ERROR",
             500
         )
 
@@ -176,15 +196,17 @@ def create_exercise(token_user_id):
         "primary_muscle_group": "chest",
         "secondary_muscle_groups": ["shoulders", "triceps"],
         "difficulty_level": "intermediate",
-        "typical_calories_per_minute": 7.5
+        "typical_calories_per_minute": 7.5  // Optional - will be estimated if not provided
     }
     """
     try:
+        from app.utils.calorie_calculator import estimate_calories_per_minute
+        
         data = request.get_json()
         
         # Validate required fields
         is_valid, error_msg = validators.validate_required_fields(
-            data, ['name', 'description', 'primary_muscle_group', 'difficulty_level', 'typical_calories_per_minute']
+            data, ['name', 'description', 'primary_muscle_group', 'difficulty_level']
         )
         if not is_valid:
             return responses.validation_error_response(error_msg)
@@ -199,10 +221,24 @@ def create_exercise(token_user_id):
         if not is_valid:
             return responses.validation_error_response(f"Invalid difficulty_level. Must be one of: {', '.join(DIFFICULTY_LEVELS)}")
         
-        # Validate calories per minute
-        is_valid, error_msg = validators.validate_positive_number(data['typical_calories_per_minute'], 'typical_calories_per_minute')
-        if not is_valid:
-            return responses.validation_error_response(error_msg)
+        # Get or estimate calories per minute
+        if 'typical_calories_per_minute' in data and data['typical_calories_per_minute']:
+            # Validate if provided
+            is_valid, error_msg = validators.validate_positive_number(data['typical_calories_per_minute'], 'typical_calories_per_minute')
+            if not is_valid:
+                return responses.validation_error_response(error_msg)
+            calories_per_min = float(data['typical_calories_per_minute'])
+        else:
+            # Estimate based on difficulty, type (inferred from muscle group), and muscle group
+            exercise_type = 'strength'  # Default - could be inferred from muscle group
+            if data['primary_muscle_group'] == 'cardio':
+                exercise_type = 'cardio'
+            
+            calories_per_min = estimate_calories_per_minute(
+                exercise_type,
+                data['difficulty_level'],
+                data['primary_muscle_group']
+            )
         
         # Check for duplicate exercise name
         existing = db.session.query(Exercise).filter_by(name=data['name']).first()
@@ -221,7 +257,7 @@ def create_exercise(token_user_id):
             primary_muscle_group=data['primary_muscle_group'],
             secondary_muscle_groups=json.dumps(secondary_muscles),
             difficulty_level=data['difficulty_level'],
-            typical_calories_per_minute=float(data['typical_calories_per_minute'])
+            typical_calories_per_minute=calories_per_min
         )
         
         db.session.add(exercise)
@@ -238,6 +274,57 @@ def create_exercise(token_user_id):
             "Database error",
             str(e),
             "EXERCISE_CREATE_ERROR",
+            500
+        )
+
+
+@bp.route('/<exercise_id>', methods=['DELETE'])
+@decorators.token_required
+def delete_exercise(token_user_id, exercise_id):
+    """
+    Delete an exercise by ID
+    
+    Path params:
+    - exercise_id: Exercise ID (UUID)
+    
+    Response (204): Exercise deleted successfully
+    Response (404): Exercise not found
+    Response (409): Cannot delete - used in workouts
+    """
+    try:
+        from app.models import WorkoutExercise
+        
+        # Find the exercise
+        exercise = db.session.query(Exercise).filter_by(exercise_id=exercise_id).first()
+        if not exercise:
+            return responses.not_found_response("Exercise not found")
+        
+        # Check if exercise is used in any workouts
+        workout_count = db.session.query(WorkoutExercise).filter_by(
+            exercise_id=exercise_id
+        ).count()
+        
+        if workout_count > 0:
+            return responses.conflict_response(
+                f"Cannot delete - used in {workout_count} workout(s). Delete workout records first."
+            )
+        
+        # Delete the exercise
+        db.session.delete(exercise)
+        db.session.commit()
+        
+        return responses.success_response(
+            {"exercise_id": exercise_id},
+            "Exercise deleted successfully",
+            204
+        )
+    
+    except Exception as e:
+        db.session.rollback()
+        return responses.error_response(
+            "Database error",
+            str(e),
+            "EXERCISE_DELETE_ERROR",
             500
         )
 

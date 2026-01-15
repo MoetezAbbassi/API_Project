@@ -13,7 +13,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     age = db.Column(db.Float, nullable=True)
     current_weight = db.Column(db.Float, nullable=True)
+    target_weight = db.Column(db.Float, nullable=True)
     height = db.Column(db.Float, nullable=True)
+    google_id = db.Column(db.String(100), nullable=True)  # Google OAuth ID
+    profile_picture = db.Column(db.String(500), nullable=True)  # Profile picture URL
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -24,6 +27,7 @@ class User(db.Model):
     programs = db.relationship('FitnessProgram', back_populates='user', cascade='all, delete-orphan')
     calendar_events = db.relationship('CalendarEvent', back_populates='user', cascade='all, delete-orphan')
     ml_predictions = db.relationship('MLPrediction', back_populates='user', cascade='all, delete-orphan')
+    weight_entries = db.relationship('WeightEntry', back_populates='user', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -230,3 +234,42 @@ class MLPrediction(db.Model):
     
     def __repr__(self):
         return f'<MLPrediction {self.equipment_name}>'
+
+
+class EmailVerificationCode(db.Model):
+    """Store email verification codes for 2FA login"""
+    __tablename__ = 'email_verification_codes'
+    
+    code_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.user_id'), nullable=False)
+    code = db.Column(db.String(6), nullable=False)  # 6-digit code
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = db.relationship('User', backref='verification_codes')
+    
+    def is_valid(self) -> bool:
+        """Check if code is still valid (not expired and not used)"""
+        return not self.used and datetime.now(timezone.utc) < self.expires_at.replace(tzinfo=timezone.utc)
+    
+    def __repr__(self):
+        return f'<EmailVerificationCode {self.code}>'
+
+class WeightEntry(db.Model):
+    """Track user's weight over time"""
+    __tablename__ = 'weight_entries'
+    
+    entry_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey('users.user_id'), nullable=False)
+    weight = db.Column(db.Float, nullable=False)  # in kg
+    entry_date = db.Column(db.Date, nullable=False, default=lambda: datetime.now(timezone.utc).date())
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = db.relationship('User', back_populates='weight_entries')
+    
+    def __repr__(self):
+        return f'<WeightEntry {self.weight}kg on {self.entry_date}>'

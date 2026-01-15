@@ -59,6 +59,7 @@ def serialize_workout(workout: Workout, include_exercises: bool = False) -> dict
     workout_dict = {
         "workout_id": workout.workout_id,
         "user_id": workout.user_id,
+        "name": workout.notes or 'Unnamed Workout',
         "workout_date": workout.workout_date.isoformat() if workout.workout_date else None,
         "workout_type": workout.workout_type,
         "status": workout.status,
@@ -70,7 +71,7 @@ def serialize_workout(workout: Workout, include_exercises: bool = False) -> dict
     }
     
     if include_exercises:
-        workout_exercises = Workoutdb.session.query(Exercise).filter_by(workout_id=workout.workout_id).order_by(
+        workout_exercises = db.session.query(WorkoutExercise).filter_by(workout_id=workout.workout_id).order_by(
             WorkoutExercise.order_in_workout
         ).all()
         
@@ -88,6 +89,63 @@ def serialize_workout(workout: Workout, include_exercises: bool = False) -> dict
     return workout_dict
 
 
+@bp.route('', methods=['GET'])
+@decorators.token_required
+def list_workouts_current_user(token_user_id):
+    """
+    List current user's workouts with optional date range filtering
+    
+    Query params:
+    - start_date: Filter workouts from date (YYYY-MM-DD)
+    - end_date: Filter workouts to date (YYYY-MM-DD)
+    - page: Page number (default 1)
+    - per_page: Items per page (default 10)
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        start_date = request.args.get('start_date', type=str)
+        end_date = request.args.get('end_date', type=str)
+        
+        query = db.session.query(Workout).filter_by(user_id=token_user_id)
+        
+        # Filter by date range if provided
+        if start_date:
+            is_valid, error_msg = validators.validate_date(start_date)
+            if is_valid:
+                start = datetime.strptime(start_date, '%Y-%m-%d').date()
+                query = query.filter(Workout.workout_date >= start)
+        
+        if end_date:
+            is_valid, error_msg = validators.validate_date(end_date)
+            if is_valid:
+                end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                query = query.filter(Workout.workout_date <= end)
+        
+        # Order by date descending
+        query = query.order_by(Workout.workout_date.desc())
+        
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        workouts = [serialize_workout(w, include_exercises=True) for w in pagination.items]
+        
+        return responses.paginated_response(
+            workouts,
+            pagination.total,
+            page,
+            per_page,
+            "Workouts retrieved successfully"
+        )
+    
+    except Exception as e:
+        return responses.error_response(
+            "Database error",
+            str(e),
+            "WORKOUT_LIST_ERROR",
+            500
+        )
+
+
 @bp.route('', methods=['POST'])
 @decorators.validate_json
 @decorators.token_required
@@ -97,8 +155,10 @@ def create_workout(token_user_id):
     
     Request body:
     {
+        "name": "Upper body day",
         "workout_type": "strength|cardio|flexibility|mixed",
-        "notes": "Upper body day"
+        "workout_date": "2026-01-13",
+        "notes": "Additional notes (optional)"
     }
     """
     try:
@@ -114,17 +174,25 @@ def create_workout(token_user_id):
         if not is_valid:
             return responses.validation_error_response(f"Invalid workout_type. Must be one of: {', '.join(WORKOUT_TYPES)}")
         
-        # Create workout
+        # Parse workout_date if provided, otherwise use today
+        workout_date = datetime.now().date()
+        if data.get('workout_date'):
+            try:
+                workout_date = datetime.strptime(data['workout_date'], '%Y-%m-%d').date()
+            except:
+                pass
+        
+        # Create workout - use 'name' or 'notes' field for the notes column
         import uuid
         workout = Workout(
             workout_id=str(uuid.uuid4()),
             user_id=token_user_id,
-            workout_date=datetime.now().date(),
+            workout_date=workout_date,
             workout_type=data['workout_type'],
             status='in_progress',
             total_duration_minutes=0,
             total_calories_burned=0.0,
-            notes=data.get('notes', '')
+            notes=data.get('name') or data.get('notes') or ''
         )
         
         db.session.add(workout)
@@ -208,7 +276,8 @@ def list_workouts(token_user_id, user_id):
 
 
 @bp.route('/<workout_id>', methods=['GET'])
-def get_workout(workout_id):
+@decorators.token_required
+def get_workout(token_user_id, workout_id):
     """
     Get workout detail with all exercises and muscle groups worked
     
@@ -219,6 +288,10 @@ def get_workout(workout_id):
         workout = db.session.query(Workout).filter_by(workout_id=workout_id).first()
         if not workout:
             return responses.not_found_response("Workout not found")
+        
+        # Verify user owns this workout
+        if workout.user_id != token_user_id:
+            return responses.forbidden_response("You can only view your own workouts")
         
         return responses.success_response(
             serialize_workout(workout, include_exercises=True),
@@ -293,8 +366,20 @@ def add_exercise_to_workout(token_user_id, workout_id):
         ).scalar() or 0
         
         # Calculate calories burned
-        # Formula: calories = sets * reps * exercise.typical_calories_per_minute / 10
-        calories_burned = (int(data['sets']) * int(data['reps']) * exercise.typical_calories_per_minute) / 10
+        # Use duration if provided, otherwise estimate based on sets/reps (typical ~1-2 min per set)
+        from app.utils.calorie_calculator import calculate_calories_burned
+        
+        if 'duration_seconds' in data and data['duration_seconds']:
+            # Use actual duration
+            duration_minutes = int(data['duration_seconds']) / 60
+        else:
+            # Estimate duration: ~2 minutes per set (includes rest)
+            duration_minutes = int(data['sets']) * 2
+        
+        calories_burned = calculate_calories_burned(
+            exercise.typical_calories_per_minute,
+            duration_minutes
+        )
         
         # Create workout exercise
         import uuid
@@ -306,8 +391,8 @@ def add_exercise_to_workout(token_user_id, workout_id):
             reps=int(data['reps']),
             weight_used=float(data['weight_used']),
             weight_unit=data['weight_unit'],
-            duration_seconds=0,
-            calories_burned=round(calories_burned, 2),
+            duration_seconds=int(data.get('duration_seconds', 0)) or int(duration_minutes * 60),
+            calories_burned=calories_burned,
             order_in_workout=last_order + 1
         )
         
@@ -356,7 +441,7 @@ def update_workout_exercise(token_user_id, workout_id, exercise_id):
             return responses.forbidden_response("You can only update exercises in your own workouts")
         
         # Verify workout exercise exists
-        workout_exercise = Workoutdb.session.query(Exercise).filter_by(
+        workout_exercise = db.session.query(WorkoutExercise).filter_by(
             workout_id=workout_id,
             exercise_id=exercise_id
         ).first()
@@ -446,7 +531,7 @@ def update_workout(token_user_id, workout_id):
                 workout.completed_at = datetime.utcnow()
                 
                 # Calculate total duration and calories
-                workout_exercises = Workoutdb.session.query(Exercise).filter_by(workout_id=workout_id).all()
+                workout_exercises = db.session.query(WorkoutExercise).filter_by(workout_id=workout_id).all()
                 total_calories = sum(we.calories_burned for we in workout_exercises)
                 workout.total_calories_burned = round(total_calories, 2)
                 
@@ -494,7 +579,7 @@ def delete_workout(token_user_id, workout_id):
             return responses.forbidden_response("You can only delete your own workouts")
         
         # Delete associated workout exercises
-        Workoutdb.session.query(Exercise).filter_by(workout_id=workout_id).delete()
+        db.session.query(WorkoutExercise).filter_by(workout_id=workout_id).delete()
         
         # Delete workout
         db.session.delete(workout)
@@ -533,7 +618,7 @@ def remove_exercise_from_workout(token_user_id, workout_id, exercise_id):
             return responses.forbidden_response("You can only modify your own workouts")
         
         # Verify workout exercise exists
-        workout_exercise = Workoutdb.session.query(Exercise).filter_by(
+        workout_exercise = db.session.query(WorkoutExercise).filter_by(
             workout_id=workout_id,
             exercise_id=exercise_id
         ).first()

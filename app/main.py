@@ -1,7 +1,7 @@
 """
 Flask app factory and initialization
 """
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 import os
 
@@ -20,7 +20,7 @@ def create_app(config=None):
     Returns:
         Flask application instance
     """
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='../frontend', static_url_path='')
     
     # Load configuration
     if config:
@@ -50,24 +50,25 @@ def create_app(config=None):
     
     # Create application context and initialize database
     with app.app_context():
+        # Import models to ensure they're registered with SQLAlchemy
+        from app import models
         try:
             db.create_all()
         except Exception as e:
             print(f"Warning: Could not create database tables: {e}")
     
     # Register blueprints
-    from app.routes import auth, users, goals, exercises, workouts, meals, calendar, programs, dashboard, ml, nutrition
+    from app.routes import auth, users, exercises, workouts, calendar, programs, dashboard, ml, nutrition, meals
     app.register_blueprint(auth.bp)
     app.register_blueprint(users.bp)
-    app.register_blueprint(goals.bp)
     app.register_blueprint(exercises.bp)
     app.register_blueprint(workouts.bp)
-    app.register_blueprint(meals.bp)
     app.register_blueprint(calendar.bp)
     app.register_blueprint(programs.bp)
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(ml.bp)
     app.register_blueprint(nutrition.bp)
+    app.register_blueprint(meals.bp)
     
     # Register error handlers
     register_error_handlers(app)
@@ -81,6 +82,36 @@ def create_app(config=None):
             'service': 'Fitness API',
             'version': '1.0.0'
         }, 200
+    
+    # Serve frontend files
+    @app.route('/')
+    def serve_index():
+        """Serve the main index page"""
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    @app.route('/app')
+    def serve_app():
+        """Serve the app dashboard page"""
+        return send_from_directory(app.static_folder, 'app.html')
+    
+    @app.route('/<path:filename>')
+    def serve_static(filename):
+        """Serve static frontend files"""
+        # Don't serve API routes as static files
+        if filename.startswith('api/'):
+            return {'error': 'Not Found'}, 404
+        
+        # Check if file exists, otherwise return index.html for SPA routing
+        file_path = os.path.join(app.static_folder, filename)
+        if os.path.isfile(file_path):
+            return send_from_directory(app.static_folder, filename)
+        # For HTML files without extension
+        if not '.' in filename:
+            html_file = filename + '.html'
+            html_path = os.path.join(app.static_folder, html_file)
+            if os.path.isfile(html_path):
+                return send_from_directory(app.static_folder, html_file)
+        return send_from_directory(app.static_folder, 'index.html')
     
     return app
 

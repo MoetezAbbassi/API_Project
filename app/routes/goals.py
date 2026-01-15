@@ -67,6 +67,52 @@ def serialize_goal(goal: Goal, include_workouts: bool = False) -> dict:
     return goal_dict
 
 
+@bp.route('', methods=['GET'])
+@decorators.token_required
+def list_goals_current_user(token_user_id):
+    """
+    List current user's goals with optional status filter
+    
+    Query params:
+    - status: Filter by goal status (active, completed, abandoned)
+    - page: Page number (default 1)
+    - per_page: Items per page (default 10)
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        status_filter = request.args.get('status', type=str)
+        
+        query = db.session.query(Goal).filter_by(user_id=token_user_id)
+        
+        # Filter by status if provided
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        
+        # Order by target_date
+        query = query.order_by(Goal.target_date.asc())
+        
+        # Paginate
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        goals = [serialize_goal(g) for g in pagination.items]
+        
+        return responses.paginated_response(
+            goals,
+            pagination.total,
+            page,
+            per_page,
+            "Goals retrieved successfully"
+        )
+    
+    except Exception as e:
+        return responses.error_response(
+            "Database error",
+            str(e),
+            "GOAL_LIST_ERROR",
+            500
+        )
+
+
 @bp.route('', methods=['POST'])
 @decorators.validate_json
 @decorators.token_required
