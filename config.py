@@ -5,6 +5,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Ensure database directory exists
+db_dir = os.path.join(os.path.expanduser('~'), 'site', 'wwwroot', 'data') if os.getenv('WEBSITE_INSTANCE_ID') else os.path.dirname(os.path.abspath(__file__))
+os.makedirs(db_dir, exist_ok=True)
+
 
 class Config:
     """Base configuration class"""
@@ -14,8 +18,9 @@ class Config:
     DEBUG = FLASK_ENV == 'development'
     TESTING = False
     
-    # Database Configuration
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///fitness_app.db')
+    # Database Configuration - Use persistent storage on Azure
+    _db_path = os.path.join(db_dir, 'fitness_app.db')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', f'sqlite:///{_db_path}')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'connect_args': {'check_same_thread': False} if 'sqlite' in SQLALCHEMY_DATABASE_URI else {}

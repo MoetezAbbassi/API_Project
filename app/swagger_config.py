@@ -28,9 +28,9 @@ SWAGGER_TEMPLATE = {
         },
         "version": "1.0.1"
     },
-    "host": "localhost:5000",
+    "host": "fitness-api-moatezabbassi-gqeueufbhfejbue6.francecentral-01.azurewebsites.net",
     "basePath": "/api",
-    "schemes": ["http"],
+    "schemes": ["https"],
     "securityDefinitions": {
         "Bearer": {
             "type": "apiKey",

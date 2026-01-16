@@ -59,6 +59,17 @@ def create_app(config=None):
         from app import models
         try:
             db.create_all()
+            
+            # Auto-seed exercises if database is empty
+            if models.Exercise.query.count() == 0:
+                try:
+                    from scripts.seed_exercises import seed_exercises
+                    print("🌱 Seeding exercises into database...")
+                    seed_exercises()
+                    print("✓ Exercises seeded successfully")
+                except Exception as seed_error:
+                    print(f"⚠ Could not auto-seed exercises: {seed_error}")
+                    
         except Exception as e:
             print(f"Warning: Could not create database tables: {e}")
     
