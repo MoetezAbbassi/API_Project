@@ -11,6 +11,9 @@ SQLAlchemy==2.0.23
 # Authentication & Security
 bcrypt==4.1.1
 python-dotenv==1.0.0
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
 
 # HTTP & Email
 requests==2.31.0
@@ -21,6 +24,10 @@ waitress==2.1.2
 
 # Image Processing
 Pillow==10.0.0
+
+# Machine Learning
+torch==2.0.0
+transformers==4.30.0
 
 # Testing (optional - remove if not needed)
 pytest==7.4.3
