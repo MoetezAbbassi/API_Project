@@ -2,7 +2,7 @@
  * API Service - Handles all HTTP requests to the backend
  */
 const API = {
-  BASE_URL: 'http://localhost:5000',
+  BASE_URL: 'https://fitness-api-moatezabbassi-gqeueufbhfejbue6.francecentral-01.azurewebsites.net',
   
   // Token management
   getToken() {
