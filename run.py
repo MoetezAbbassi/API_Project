@@ -12,8 +12,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.main import create_app
 
+# Create app at module level so Gunicorn can find it
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     
     port = int(os.getenv('FLASK_PORT', 5000))
     flask_env = os.getenv('FLASK_ENV', 'development')
