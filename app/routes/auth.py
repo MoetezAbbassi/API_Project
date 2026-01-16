@@ -25,26 +25,62 @@ GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 def google_login():
     """
     Login or register with Google OAuth 2.0
-    
-    Request body:
-    {
-        "credential": "google_id_token"  (from Google Sign-In)
-    }
-    OR
-    {
-        "code": "authorization_code",  (from OAuth redirect flow)
-        "redirect_uri": "http://localhost:5000"
-    }
-    
-    Response on success:
-    {
-        "success": true,
-        "data": {
-            "token": "jwt_token",
-            "user": { ... },
-            "is_new_user": true/false
-        }
-    }
+    ---
+    tags:
+      - Authentication
+    summary: Google OAuth 2.0 login
+    description: Authenticate using Google Sign-In. Creates new account if email not found.
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            credential:
+              type: string
+              description: Google ID token from Sign-In button (alternative format)
+            code:
+              type: string
+              description: Authorization code from OAuth flow
+            redirect_uri:
+              type: string
+              description: Redirect URI used in OAuth flow
+    responses:
+      200:
+        description: Google authentication successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Google login successful
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: JWT Bearer token
+                user:
+                  type: object
+                is_new_user:
+                  type: boolean
+                  description: True if new account was created
+      400:
+        description: Bad request
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+      401:
+        description: Invalid Google token
+        schema:
+          $ref: '#/definitions/ErrorResponse'
     """
     try:
         data = request.get_json()
@@ -191,7 +227,74 @@ def google_config():
 
 @bp.route('/register', methods=['POST'])
 def register():
-    """Register a new user"""
+    """
+    Register a new user
+    ---
+    tags:
+      - Authentication
+    summary: Register a new user account
+    description: Create a new user account with email, username, and password
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - email
+            - password
+          properties:
+            username:
+              type: string
+              minLength: 3
+              maxLength: 20
+              description: Unique username (alphanumeric, 3-20 characters)
+            email:
+              type: string
+              format: email
+              description: Valid email address
+            password:
+              type: string
+              minLength: 8
+              description: Password (min 8 chars, must contain uppercase, lowercase, numbers)
+    responses:
+      201:
+        description: User successfully registered
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: User registered successfully
+            user:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                username:
+                  type: string
+                email:
+                  type: string
+                created_at:
+                  type: string
+                  format: date-time
+      400:
+        description: Bad request - validation error
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+      409:
+        description: Conflict - username or email already exists
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+    """
     try:
         data = request.get_json()
         
@@ -253,24 +356,63 @@ def register():
 def login():
     """
     Step 1 of login: Verify credentials and send verification code to email
-    
-    Request body:
-    {
-        "username": "string",
-        "password": "string"
-    }
-    
-    Response:
-    {
-        "success": true,
-        "data": {
-            "user_id": "uuid",
-            "email_hint": "m***@gmail.com",
-            "verification_required": true,
-            "expires_in_seconds": 600
-        },
-        "message": "Verification code sent to your email"
-    }
+    ---
+    tags:
+      - Authentication
+    summary: Login with email and password
+    description: Initiate login flow. Sends 6-digit verification code to registered email.
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              description: Username
+            password:
+              type: string
+              description: Password
+    responses:
+      200:
+        description: Verification code sent to email
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Verification code sent to your email
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                email_hint:
+                  type: string
+                  example: a***@gmail.com
+                verification_required:
+                  type: boolean
+                expires_in_seconds:
+                  type: integer
+      400:
+        description: Bad request - validation or invalid credentials
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+      404:
+        description: User not found
+        schema:
+          $ref: '#/definitions/ErrorResponse'
     """
     try:
         data = request.get_json()
@@ -329,24 +471,67 @@ def login():
 def verify_login():
     """
     Step 2 of login: Verify the code sent to email and get JWT token
-    
-    Request body:
-    {
-        "user_id": "uuid",
-        "code": "123456"
-    }
-    
-    Response:
-    {
-        "success": true,
-        "data": {
-            "user_id": "uuid",
-            "username": "string",
-            "token": "jwt_token",
-            "token_expires_in": 86400
-        },
-        "message": "Login successful"
-    }
+    ---
+    tags:
+      - Authentication
+    summary: Verify 2FA code and get JWT token
+    description: Complete login flow by verifying the 6-digit code from email
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - user_id
+            - code
+          properties:
+            user_id:
+              type: string
+              description: User ID from login endpoint
+            code:
+              type: string
+              pattern: '^\\d{6}$'
+              description: 6-digit verification code from email
+    responses:
+      200:
+        description: Login successful, JWT token issued
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            message:
+              type: string
+              example: Login successful
+            data:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                username:
+                  type: string
+                email:
+                  type: string
+                token:
+                  type: string
+                  description: JWT Bearer token for authenticated requests
+                token_expires_in:
+                  type: integer
+                  example: 86400
+      400:
+        description: Bad request or invalid code
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+      404:
+        description: User not found
+        schema:
+          $ref: '#/definitions/ErrorResponse'
     """
     try:
         data = request.get_json()

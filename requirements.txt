@@ -1,13 +1,27 @@
+# Core Framework
 Flask==3.0.0
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.3
+Flasgger==0.9.7.1
+
+# Database (SQLite included in Python)
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
-python-dotenv==1.0.0
+
+# Authentication & Security
 bcrypt==4.1.1
+python-dotenv==1.0.0
+
+# HTTP & Email
 requests==2.31.0
-pytest==7.4.3
-pytest-cov==4.1.0waitress==2.1.2
-torch==2.0.0
-transformers==4.30.0
+
+# Server (for Azure)
+gunicorn==21.2.0
+waitress==2.1.2
+
+# Image Processing
 Pillow==10.0.0
+
+# Testing (optional - remove if not needed)
+pytest==7.4.3
+pytest-cov==4.1.0

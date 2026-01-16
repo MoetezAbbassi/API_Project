@@ -1,8 +1,9 @@
 """
 Flask app factory and initialization
 """
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
+from flasgger import Flasgger
 import os
 
 from app.extensions import db, jwt
@@ -31,6 +32,10 @@ def create_app(config=None):
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
+    
+    # Configure Swagger/OpenAPI documentation
+    from app.swagger_config import SWAGGER_CONFIG, SWAGGER_TEMPLATE
+    Flasgger(app, config=SWAGGER_CONFIG, template=SWAGGER_TEMPLATE)
     
     # Configure CORS
     CORS(
@@ -118,28 +123,59 @@ def create_app(config=None):
 
 def register_error_handlers(app):
     """Register global error handlers"""
-    from flask import jsonify
     
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({
             'success': False,
-            'error': 'NOT_FOUND',
-            'message': 'The requested resource does not exist'
+            'error': {
+                'type': 'Not Found',
+                'message': 'The requested resource does not exist',
+                'code': 'NOT_FOUND'
+            }
         }), 404
     
     @app.errorhandler(500)
     def internal_error(error):
         return jsonify({
             'success': False,
-            'error': 'INTERNAL_SERVER_ERROR',
-            'message': 'An internal server error occurred'
+            'error': {
+                'type': 'Internal Server Error',
+                'message': 'An internal server error occurred',
+                'code': 'INTERNAL_SERVER_ERROR'
+            }
         }), 500
     
     @app.errorhandler(400)
     def bad_request(error):
         return jsonify({
             'success': False,
-            'error': 'BAD_REQUEST',
-            'message': 'Bad request'
+            'error': {
+                'type': 'Bad Request',
+                'message': 'Bad request',
+                'code': 'BAD_REQUEST'
+            }
         }), 400
+    
+    @app.errorhandler(401)
+    def unauthorized(error):
+        return jsonify({
+            'success': False,
+            'error': {
+                'type': 'Unauthorized',
+                'message': 'Authentication required or credentials invalid',
+                'code': 'UNAUTHORIZED'
+            }
+        }), 401
+    
+    @app.errorhandler(403)
+    def forbidden(error):
+        return jsonify({
+            'success': False,
+            'error': {
+                'type': 'Forbidden',
+                'message': 'You do not have permission to access this resource',
+                'code': 'FORBIDDEN'
+            }
+        }), 403
+

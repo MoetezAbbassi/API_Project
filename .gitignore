@@ -82,6 +82,10 @@ uploads/images/
 .env.*.local
 secrets.json
 
+# Documentation (except README)
+*.md
+!README.md
+
 # OS files
 Thumbs.db
 .DS_Store

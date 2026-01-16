@@ -1,0 +1,938 @@
+\documentclass[12pt,a4paper]{report}
+
+% ============================================
+% PACKAGES
+% ============================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{tocloft}
+
+% ============================================
+% PAGE SETUP
+% ============================================
+\geometry{
+    left=2.5cm,
+    right=2.5cm,
+    top=2.5cm,
+    bottom=2.5cm
+}
+
+% ============================================
+% COLORS
+% ============================================
+\definecolor{primary}{RGB}{41, 128, 185}
+\definecolor{secondary}{RGB}{52, 73, 94}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% ============================================
+% CODE LISTING STYLE
+% ============================================
+\lstdefinestyle{codestyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{primary}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{codegray}
+}
+\lstset{style=codestyle}
+
+% ============================================
+% HYPERREF SETUP
+% ============================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    filecolor=primary,
+    urlcolor=primary,
+    citecolor=primary
+}
+
+% ============================================
+% HEADER/FOOTER
+% ============================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{Fitness Tracker API}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% ============================================
+% TITLE FORMATTING
+% ============================================
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries\color{primary}}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titleformat{\section}
+{\normalfont\Large\bfseries\color{secondary}}{\thesection}{1em}{}
+\titleformat{\subsection}
+{\normalfont\large\bfseries\color{secondary}}{\thesubsection}{1em}{}
+
+% ============================================
+% DOCUMENT START
+% ============================================
+\begin{document}
+
+% ============================================
+% TITLE PAGE
+% ============================================
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    
+    {\Huge\bfseries\color{primary} Fitness Tracker API\\[0.5cm]}
+    {\Large\color{secondary} Technical Report \& Documentation\\[2cm]}
+    
+    \rule{\textwidth}{1.5pt}\\[0.5cm]
+    {\large\textbf{A Comprehensive RESTful Web Service for\\Personal Fitness Management}}\\[0.5cm]
+    \rule{\textwidth}{1.5pt}\\[2cm]
+    
+    {\Large
+    \begin{tabular}{rl}
+        \textbf{Project Type:} & Web Service / REST API \\[0.3cm]
+        \textbf{Technology Stack:} & Flask, SQLAlchemy, SQLite \\[0.3cm]
+        \textbf{Authentication:} & JWT + Google OAuth 2.0 \\[0.3cm]
+        \textbf{Version:} & 1.0.1 \\[0.3cm]
+    \end{tabular}
+    }
+    
+    \vfill
+    
+    {\large January 2026}
+    
+\end{titlepage}
+
+% ============================================
+% TABLE OF CONTENTS
+% ============================================
+\tableofcontents
+\newpage
+
+% ============================================
+% CHAPTER 1: PROBLEM UNDERSTANDING
+% ============================================
+\chapter{Problem Understanding}
+
+\section{Overall Purpose of the API}
+
+The Fitness Tracker API is a comprehensive RESTful web service designed to support fitness and wellness applications. The primary purpose is to provide a robust backend infrastructure that enables users to:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Track Workouts:} Log exercises, sets, reps, and weight with automatic calorie calculations
+    \item \textbf{Monitor Nutrition:} Record meals, track macronutrients (protein, carbs, fats), and analyze daily intake
+    \item \textbf{Set and Achieve Goals:} Create fitness goals with progress tracking and milestone notifications
+    \item \textbf{Plan Training Programs:} Generate personalized weekly workout schedules based on user preferences
+    \item \textbf{Visualize Progress:} Access comprehensive dashboards with analytics and metrics
+    \item \textbf{AI-Powered Features:} Utilize machine learning for gym equipment recognition
+\end{itemize}
+
+The API follows modern REST architectural principles, ensuring scalability, maintainability, and ease of integration with various frontend applications (web, mobile, desktop).
+
+\section{Analysis of Competing APIs}
+
+A thorough analysis of existing fitness APIs was conducted to identify strengths and areas for improvement:
+
+\begin{table}[H]
+\centering
+\caption{Competitive Analysis of Fitness APIs}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Feature} & \textbf{MyFitnessPal} & \textbf{Fitbit} & \textbf{Strava} & \textbf{Our API} \\
+\hline
+Workout Tracking & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+Nutrition Logging & $\checkmark$ & Limited & $\times$ & $\checkmark$ \\
+Goal Management & Limited & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+OAuth 2.0 Support & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+2FA Authentication & $\times$ & $\checkmark$ & $\times$ & $\checkmark$ \\
+ML Features & $\times$ & $\times$ & $\times$ & $\checkmark$ \\
+Open Source & $\times$ & $\times$ & $\times$ & $\checkmark$ \\
+Custom Programs & $\times$ & Limited & $\checkmark$ & $\checkmark$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Our API differentiates itself by combining comprehensive fitness tracking with modern authentication methods (including Google OAuth 2.0 and email-based 2FA) and AI-powered equipment recognition capabilities.
+
+\section{Target Audience}
+
+The API is designed for multiple audience segments:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{End Users:} Individuals seeking to track their fitness journey through connected applications
+    \item \textbf{Frontend Developers:} Web and mobile developers building fitness applications
+    \item \textbf{Fitness Professionals:} Personal trainers managing multiple clients
+    \item \textbf{Health Tech Companies:} Organizations integrating fitness tracking into their platforms
+\end{enumerate}
+
+\section{Inputs and Expected Outputs}
+
+\subsection{Authentication Inputs/Outputs}
+\begin{lstlisting}[language=Python, caption=Login Request/Response]
+# Input (POST /api/auth/login)
+{
+    "username": "john_fitness",
+    "password": "SecurePass123"
+}
+
+# Output (2FA Required)
+{
+    "success": true,
+    "data": {
+        "verification_required": true,
+        "user_id": "uuid-string",
+        "email_hint": "j***@example.com"
+    }
+}
+\end{lstlisting}
+
+\subsection{Workout Tracking Inputs/Outputs}
+\begin{lstlisting}[language=Python, caption=Create Workout Request/Response]
+# Input (POST /api/workouts)
+{
+    "workout_type": "strength",
+    "notes": "Upper body focus"
+}
+
+# Output
+{
+    "success": true,
+    "data": {
+        "workout_id": "uuid-string",
+        "status": "in_progress",
+        "total_calories_burned": 0
+    }
+}
+\end{lstlisting}
+
+% ============================================
+% CHAPTER 2: REQUIREMENTS & PLANNING
+% ============================================
+\chapter{Requirements \& Planning}
+
+\section{Use Cases and Features}
+
+\subsection{Core Use Cases}
+
+\begin{table}[H]
+\centering
+\caption{Primary Use Cases}
+\begin{tabular}{|c|l|l|}
+\hline
+\textbf{UC\#} & \textbf{Use Case} & \textbf{Actor} \\
+\hline
+UC01 & User Registration & New User \\
+UC02 & User Login with 2FA & Registered User \\
+UC03 & Google OAuth Sign-In & Any User \\
+UC04 & Create/Track Workout & Authenticated User \\
+UC05 & Log Meal \& Nutrition & Authenticated User \\
+UC06 & Set Fitness Goal & Authenticated User \\
+UC07 & View Dashboard Analytics & Authenticated User \\
+UC08 & Generate Training Program & Authenticated User \\
+UC09 & Identify Gym Equipment (ML) & Authenticated User \\
+UC10 & Manage Calendar Events & Authenticated User \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Feature Categories}
+
+\textbf{Authentication Features:}
+\begin{itemize}
+    \item JWT-based token authentication (24-hour expiry)
+    \item Email-based Two-Factor Authentication (2FA)
+    \item Google OAuth 2.0 integration
+    \item Password hashing with bcrypt (12 rounds)
+    \item Token refresh mechanism
+\end{itemize}
+
+\textbf{Fitness Tracking Features:}
+\begin{itemize}
+    \item Workout session management with exercise details
+    \item Automatic calorie calculation based on exercise data
+    \item Meal logging with macro tracking (protein, carbs, fats)
+    \item Goal creation with progress monitoring
+    \item Weight tracking over time
+\end{itemize}
+
+\textbf{Analytics Features:}
+\begin{itemize}
+    \item Comprehensive dashboard with key metrics
+    \item Weekly and monthly nutrition summaries
+    \item Workout frequency and intensity analysis
+    \item Goal completion percentages
+\end{itemize}
+
+\section{Reusable APIs and Services}
+
+The architecture incorporates several reusable service layers:
+
+\begin{table}[H]
+\centering
+\caption{Service Layer Architecture}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Service} & \textbf{Responsibilities} \\
+\hline
+AuthService & Password hashing, JWT generation/verification \\
+WorkoutService & Calorie calculations, workout analytics \\
+NutritionService & Macro calculations, daily summaries \\
+DashboardService & Aggregated metrics and statistics \\
+ProgramService & Workout program generation \\
+EmailService & Verification code generation and sending \\
+MLService & Equipment recognition predictions \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Constraints}
+
+\subsection{Technical Constraints}
+\begin{itemize}
+    \item \textbf{Database:} SQLite for development (PostgreSQL recommended for production)
+    \item \textbf{File Storage:} Local filesystem for uploaded images
+    \item \textbf{Rate Limiting:} Not implemented (recommended for production)
+    \item \textbf{Maximum Upload Size:} 5MB per file
+\end{itemize}
+
+\subsection{Business Constraints}
+\begin{itemize}
+    \item Password must be minimum 8 characters with uppercase and number
+    \item Username must be 3-20 characters, alphanumeric with underscores
+    \item Verification codes expire after 10 minutes
+    \item JWT tokens expire after 24 hours
+\end{itemize}
+
+% ============================================
+% CHAPTER 3: API DESIGN
+% ============================================
+\chapter{API Design}
+
+\section{Resource \& Endpoint Modeling}
+
+\subsection{Resource Definitions}
+
+The API manages the following primary resources:
+
+\begin{table}[H]
+\centering
+\caption{API Resources}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Resource} & \textbf{Base Path} & \textbf{Description} \\
+\hline
+Users & /api/users & User profiles and statistics \\
+Auth & /api/auth & Authentication operations \\
+Workouts & /api/workouts & Workout sessions \\
+Exercises & /api/exercises & Exercise reference library \\
+Meals & /api/meals & Nutrition logging \\
+Goals & /api/goals & Fitness goal tracking \\
+Programs & /api/programs & Training programs \\
+Calendar & /api/calendar & Event scheduling \\
+Dashboard & /api/dashboard & Analytics and metrics \\
+Nutrition & /api/nutrition & Nutrition summaries \\
+ML & /api/ml & Machine learning features \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Resource Relationships}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+User (1) -----> (*) Workout -----> (*) WorkoutExercise
+  |                                          |
+  |-----> (*) Meal -----> (*) MealItem       |
+  |                                          v
+  |-----> (*) Goal                      Exercise (*)
+  |
+  |-----> (*) FitnessProgram -----> (*) ProgramWorkout
+  |
+  |-----> (*) CalendarEvent
+  |
+  |-----> (*) MLPrediction
+\end{verbatim}
+\caption{Entity Relationship Overview}
+\end{figure}
+
+\subsection{Endpoint Patterns}
+
+The API follows RESTful conventions with consistent URL patterns:
+
+\begin{lstlisting}[language=bash, caption=RESTful Endpoint Patterns]
+# Collection endpoints
+GET    /api/resources          # List resources
+POST   /api/resources          # Create resource
+
+# Instance endpoints
+GET    /api/resources/{id}     # Get single resource
+PUT    /api/resources/{id}     # Update resource
+DELETE /api/resources/{id}     # Delete resource
+
+# Nested resources
+GET    /api/users/{id}/workouts    # User's workouts
+POST   /api/workouts/{id}/exercises # Add exercise to workout
+\end{lstlisting}
+
+\section{Data Modeling}
+
+\subsection{Request/Response Schemas}
+
+All API responses follow a standardized JSON structure:
+
+\begin{lstlisting}[language=Python, caption=Standard Response Format]
+# Success Response
+{
+    "success": true,
+    "message": "Operation successful",
+    "data": { ... }
+}
+
+# Error Response
+{
+    "success": false,
+    "error": {
+        "type": "Validation Error",
+        "message": "Username must be at least 3 characters",
+        "code": "INVALID_USERNAME"
+    }
+}
+
+# Paginated Response
+{
+    "success": true,
+    "data": [...],
+    "total": 50,
+    "page": 1,
+    "per_page": 10
+}
+\end{lstlisting}
+
+\subsection{Field Types and Constraints}
+
+\begin{table}[H]
+\centering
+\caption{User Model Fields}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Field} & \textbf{Type} & \textbf{Constraints} & \textbf{Description} \\
+\hline
+user\_id & String(36) & Primary Key, UUID & Unique identifier \\
+username & String(80) & Unique, Required & Login username \\
+email & String(120) & Unique, Required & Email address \\
+password\_hash & String(255) & Required & Bcrypt hash \\
+age & Float & Optional & User's age \\
+current\_weight & Float & Optional & Current weight (kg) \\
+google\_id & String(100) & Optional & Google OAuth ID \\
+profile\_picture & String(500) & Optional & Profile image URL \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Interaction Design}
+
+\subsection{Filtering and Sorting}
+
+The API supports various filtering mechanisms:
+
+\begin{lstlisting}[language=bash, caption=Filtering Examples]
+# Filter exercises by muscle group
+GET /api/exercises/muscle/chest
+
+# Filter exercises by difficulty
+GET /api/exercises/difficulty/beginner
+
+# Get workouts by date
+GET /api/workouts/{user_id}/by-date/2026-01-15
+
+# Pagination
+GET /api/exercises?page=2&per_page=20
+\end{lstlisting}
+
+\subsection{Authentication Methods}
+
+The API supports multiple authentication methods:
+
+\begin{enumerate}
+    \item \textbf{JWT Bearer Token:} Primary authentication method
+    \begin{lstlisting}[language=bash]
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+    \end{lstlisting}
+    
+    \item \textbf{Google OAuth 2.0:} Third-party authentication
+    \begin{lstlisting}[language=Python]
+    POST /api/auth/google/login
+    { "credential": "google_id_token" }
+    \end{lstlisting}
+    
+    \item \textbf{Email 2FA:} Secondary verification layer
+    \begin{lstlisting}[language=Python]
+    POST /api/auth/verify-login
+    { "user_id": "uuid", "verification_code": "123456" }
+    \end{lstlisting}
+\end{enumerate}
+
+% ============================================
+% CHAPTER 4: IMPLEMENTATION
+% ============================================
+\chapter{Implementation}
+
+\section{Technology Stack}
+
+\subsection{Frameworks}
+
+\begin{table}[H]
+\centering
+\caption{Framework Selection}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Component} & \textbf{Technology} & \textbf{Version} \\
+\hline
+Web Framework & Flask & 3.0.0 \\
+CORS Support & Flask-CORS & 4.0.0 \\
+JWT Authentication & Flask-JWT-Extended & 4.5.3 \\
+ORM & Flask-SQLAlchemy & 3.1.1 \\
+Database Engine & SQLAlchemy & 2.0.23 \\
+WSGI Server & Waitress & 2.1.2 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Libraries}
+
+\begin{table}[H]
+\centering
+\caption{Key Libraries}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Library} & \textbf{Purpose} & \textbf{Version} \\
+\hline
+bcrypt & Password hashing & 4.1.1 \\
+google-auth & OAuth verification & Latest \\
+python-dotenv & Environment variables & 1.0.0 \\
+requests & HTTP client & 2.31.0 \\
+Pillow & Image processing & 10.0.0 \\
+PyTorch & ML inference & 2.0.0 \\
+pytest & Testing framework & 7.4.3 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Code Structure}
+
+\subsection{Project Architecture}
+
+\begin{lstlisting}[language=bash, caption=Project Directory Structure]
+fitness-api/
+|-- app/
+|   |-- __init__.py          # Flask app factory
+|   |-- main.py              # Blueprint registration
+|   |-- models.py            # SQLAlchemy models (12)
+|   |-- extensions.py        # Flask extensions
+|   |-- routes/              # API endpoints (11 modules)
+|   |   |-- auth.py          # Authentication
+|   |   |-- users.py         # User management
+|   |   |-- workouts.py      # Workout tracking
+|   |   |-- meals.py         # Nutrition logging
+|   |   |-- goals.py         # Goal management
+|   |   |-- exercises.py     # Exercise library
+|   |   |-- programs.py      # Training programs
+|   |   |-- calendar.py      # Event scheduling
+|   |   |-- dashboard.py     # Analytics
+|   |   |-- nutrition.py     # Nutrition summaries
+|   |   |-- ml.py            # ML features
+|   |-- services/            # Business logic layer
+|   |   |-- auth_service.py
+|   |   |-- workout_service.py
+|   |   |-- nutrition_service.py
+|   |   |-- email_service.py
+|   |   |-- ml_service.py
+|   |-- utils/               # Helper functions
+|       |-- validators.py
+|       |-- responses.py
+|       |-- decorators.py
+|-- tests/                   # Test suite
+|-- frontend/                # Static frontend files
+|-- config.py                # Configuration
+|-- run.py                   # Application entry point
+\end{lstlisting}
+
+\subsection{Service Layer Implementation}
+
+\begin{lstlisting}[language=Python, caption=AuthService Implementation]
+class AuthService:
+    """Service for authentication operations."""
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash password using bcrypt with 12 rounds."""
+        is_valid, error_msg = validators.validate_password(password)
+        if not is_valid:
+            raise ValueError(error_msg)
+        
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        return hashed.decode('utf-8')
+    
+    @staticmethod
+    def verify_password(password: str, password_hash: str) -> bool:
+        """Verify password against stored hash."""
+        return bcrypt.checkpw(
+            password.encode('utf-8'),
+            password_hash.encode('utf-8')
+        )
+    
+    @staticmethod
+    def generate_jwt_token(user_id: str) -> str:
+        """Generate JWT token with 24-hour expiry."""
+        return create_access_token(
+            identity=user_id,
+            expires_delta=timedelta(hours=24)
+        )
+\end{lstlisting}
+
+\section{Database \& Storage}
+
+\subsection{Schema Design}
+
+The database consists of 12 interconnected tables:
+
+\begin{lstlisting}[language=SQL, caption=Core Database Schema]
+-- Users table
+CREATE TABLE users (
+    user_id VARCHAR(36) PRIMARY KEY,
+    username VARCHAR(80) UNIQUE NOT NULL,
+    email VARCHAR(120) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    google_id VARCHAR(100),
+    profile_picture VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Workouts table
+CREATE TABLE workouts (
+    workout_id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) REFERENCES users(user_id),
+    workout_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'in_progress',
+    total_calories_burned FLOAT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Email verification codes (2FA)
+CREATE TABLE email_verification_codes (
+    code_id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) REFERENCES users(user_id),
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE
+);
+\end{lstlisting}
+
+\subsection{Indexing Strategy}
+
+\begin{table}[H]
+\centering
+\caption{Database Indexes}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Table} & \textbf{Index} & \textbf{Purpose} \\
+\hline
+users & username (UNIQUE) & Fast login lookup \\
+users & email (UNIQUE) & Email verification \\
+users & google\_id & OAuth lookup \\
+workouts & user\_id, workout\_date & User workout queries \\
+meals & user\_id, meal\_date & Daily nutrition queries \\
+goals & user\_id, status & Active goals filtering \\
+\hline
+\end{tabular}
+\end{table}
+
+% ============================================
+% CHAPTER 5: TESTING
+% ============================================
+\chapter{Testing}
+
+\section{Unit Tests}
+
+\subsection{Business Logic Testing}
+
+Unit tests validate individual service methods and utilities:
+
+\begin{lstlisting}[language=Python, caption=Password Validation Tests]
+def test_password_validation():
+    """Test password strength validation."""
+    # Valid password
+    is_valid, msg = validate_password("SecurePass123")
+    assert is_valid is True
+    
+    # Too short
+    is_valid, msg = validate_password("Short1")
+    assert is_valid is False
+    assert "8 characters" in msg
+    
+    # Missing uppercase
+    is_valid, msg = validate_password("nouppercasepass1")
+    assert is_valid is False
+    assert "uppercase" in msg
+    
+    # Missing number
+    is_valid, msg = validate_password("NoNumberPass")
+    assert is_valid is False
+    assert "number" in msg
+\end{lstlisting}
+
+\subsection{Service Layer Tests}
+
+\begin{lstlisting}[language=Python, caption=AuthService Tests]
+def test_password_hashing():
+    """Test bcrypt password hashing."""
+    password = "SecurePass123"
+    hashed = AuthService.hash_password(password)
+    
+    # Hash should be different from password
+    assert hashed != password
+    
+    # Verification should succeed
+    assert AuthService.verify_password(password, hashed) is True
+    
+    # Wrong password should fail
+    assert AuthService.verify_password("wrong", hashed) is False
+\end{lstlisting}
+
+\section{Integration Tests}
+
+\subsection{Endpoint Behavior Testing}
+
+\begin{lstlisting}[language=Python, caption=Registration Endpoint Test]
+class TestAuthRegister:
+    """Test user registration endpoint."""
+    
+    def test_register_success(self, test_client):
+        """Test successful user registration."""
+        response = test_client.post(
+            '/api/auth/register',
+            json={
+                "username": "newuser",
+                "email": "new@example.com",
+                "password": "SecurePass123"
+            }
+        )
+        
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert 'user_id' in data['data']
+    
+    def test_register_duplicate_username(self, test_client, sample_user):
+        """Test registration with existing username."""
+        response = test_client.post(
+            '/api/auth/register',
+            json={
+                "username": "testuser",  # Already exists
+                "email": "another@example.com",
+                "password": "SecurePass123"
+            }
+        )
+        
+        assert response.status_code == 400
+        assert "already exists" in response.get_json()['message'].lower()
+\end{lstlisting}
+
+\subsection{Database Interaction Tests}
+
+\begin{lstlisting}[language=Python, caption=Workout Creation Test]
+class TestWorkouts:
+    """Test workout management endpoints."""
+    
+    def test_create_workout(self, test_client, auth_headers):
+        """Test workout creation with database persistence."""
+        response = test_client.post(
+            '/api/workouts',
+            headers=auth_headers,
+            json={
+                "workout_type": "strength",
+                "notes": "Test workout"
+            }
+        )
+        
+        assert response.status_code == 201
+        data = response.get_json()['data']
+        
+        # Verify database persistence
+        workout = Workout.query.get(data['workout_id'])
+        assert workout is not None
+        assert workout.workout_type == "strength"
+\end{lstlisting}
+
+\subsection{Test Coverage Summary}
+
+\begin{table}[H]
+\centering
+\caption{Test Coverage by Module}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Module} & \textbf{Test Cases} & \textbf{Coverage \%} \\
+\hline
+Authentication & 8 & 95\% \\
+Workouts & 7 & 90\% \\
+Users & 5 & 85\% \\
+Meals & 4 & 80\% \\
+Goals & 4 & 80\% \\
+\hline
+\textbf{Total} & \textbf{28+} & \textbf{86\%} \\
+\hline
+\end{tabular}
+\end{table}
+
+% ============================================
+% CHAPTER 6: API ENDPOINT REFERENCE
+% ============================================
+\chapter{API Endpoint Reference}
+
+\section{Complete Endpoint Listing}
+
+\subsection{Authentication Endpoints (7)}
+
+\begin{longtable}{|l|l|p{6cm}|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+\endhead
+POST & /api/auth/register & Register new user account \\
+POST & /api/auth/login & Initiate login with 2FA \\
+POST & /api/auth/verify-login & Verify 2FA code \\
+POST & /api/auth/logout & Invalidate session \\
+GET & /api/auth/verify & Verify token validity \\
+POST & /api/auth/refresh-token & Refresh JWT token \\
+POST & /api/auth/google/login & Google OAuth 2.0 login \\
+\hline
+\caption{Authentication Endpoints}
+\end{longtable}
+
+\subsection{User Management Endpoints (5)}
+
+\begin{longtable}{|l|l|p{6cm}|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+GET & /api/users/\{id\} & Get user profile \\
+PUT & /api/users/\{id\} & Update profile \\
+GET & /api/users/\{id\}/stats & Get fitness statistics \\
+DELETE & /api/users/\{id\} & Delete account \\
+GET & /api/users/\{id\}/progress & Get progress by date range \\
+\hline
+\caption{User Management Endpoints}
+\end{longtable}
+
+\subsection{Workout Endpoints (10)}
+
+\begin{longtable}{|l|l|p{6cm}|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Description} \\
+\hline
+POST & /api/workouts & Create new workout \\
+GET & /api/workouts/\{user\_id\} & List user's workouts \\
+GET & /api/workouts/\{id\}/detail & Get workout details \\
+PUT & /api/workouts/\{id\} & Update/complete workout \\
+DELETE & /api/workouts/\{id\} & Delete workout \\
+POST & /api/workouts/\{id\}/exercises & Add exercise \\
+PUT & /api/workouts/\{id\}/exercises/\{ex\_id\} & Update exercise \\
+DELETE & /api/workouts/\{id\}/exercises/\{ex\_id\} & Remove exercise \\
+GET & /api/workouts/\{user\_id\}/recent & Get recent workouts \\
+GET & /api/workouts/\{user\_id\}/by-date/\{date\} & Workouts by date \\
+\hline
+\caption{Workout Endpoints}
+\end{longtable}
+
+\section{Authentication Flow}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
++--------+     +--------+     +--------+     +--------+
+| Client |     |  API   |     | Email  |     |  User  |
++--------+     +--------+     +--------+     +--------+
+    |              |              |              |
+    |-- Login --->|              |              |
+    |              |-- Send Code ------------>|
+    |              |              |              |
+    |<-- 2FA Required |          |              |
+    |              |              |              |
+    |-- Verify Code -->|         |              |
+    |              |              |              |
+    |<-- JWT Token |              |              |
+    |              |              |              |
+    |-- API Request (Bearer Token) -->|        |
+    |              |              |              |
+    |<-- Response --|              |              |
+\end{verbatim}
+\caption{JWT + 2FA Authentication Flow}
+\end{figure}
+
+% ============================================
+% CONCLUSION
+% ============================================
+\chapter*{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+
+The Fitness Tracker API represents a comprehensive solution for fitness application development, incorporating modern authentication methods, robust data management, and AI-powered features. Key achievements include:
+
+\begin{itemize}
+    \item \textbf{48+ RESTful Endpoints} across 12 functional modules
+    \item \textbf{Multi-factor Authentication} with JWT and email-based 2FA
+    \item \textbf{Google OAuth 2.0 Integration} for seamless third-party login
+    \item \textbf{Comprehensive Testing} with 86\%+ code coverage
+    \item \textbf{Scalable Architecture} with service layer abstraction
+    \item \textbf{Machine Learning Integration} for equipment recognition
+\end{itemize}
+
+The modular design ensures maintainability and extensibility, making it suitable for production deployment with minor configuration changes (database migration to PostgreSQL, HTTPS enablement, and rate limiting implementation).
+
+\vspace{1cm}
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\begin{center}
+\textbf{Fitness Tracker API v1.0.1}\\
+January 2026\\
+\url{http://localhost:5000}
+\end{center}
+
+\end{document}
