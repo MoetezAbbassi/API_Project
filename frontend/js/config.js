@@ -4,7 +4,7 @@
  */
 const CONFIG = {
   // API Base URL - change this for production
-  API_URL: 'http://localhost:5000',
+  API_URL: 'https://fitness-api-moatezabbassi-gqeueufbhfejbue6.francecentral-01.azurewebsites.net',
   
   // Token storage key
   TOKEN_KEY: 'token',
