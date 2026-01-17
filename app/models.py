@@ -59,16 +59,20 @@ class Exercise(db.Model):
     __tablename__ = 'exercises'
     
     exercise_id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid4()))
-    name = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text, nullable=True)
     primary_muscle_group = db.Column(db.String(50), nullable=False)
     secondary_muscle_groups = db.Column(db.Text, nullable=True)  # JSON string
     difficulty_level = db.Column(db.String(50), nullable=False)  # beginner, intermediate, advanced
     typical_calories_per_minute = db.Column(db.Float, nullable=False)
+    is_custom = db.Column(db.Boolean, default=False, nullable=False)  # True for user-created exercises
+    user_id = db.Column(db.String(36), db.ForeignKey('users.user_id'), nullable=True)  # NULL for system exercises
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     workout_exercises = db.relationship('WorkoutExercise', back_populates='exercise', cascade='all, delete-orphan')
+    user = db.relationship('User', foreign_keys=[user_id], backref='custom_exercises')
     
     def __repr__(self):
         return f'<Exercise {self.name}>'

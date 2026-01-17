@@ -293,12 +293,17 @@ def get_workout(token_user_id, workout_id):
         if workout.user_id != token_user_id:
             return responses.forbidden_response("You can only view your own workouts")
         
+        # Get workout with exercises
+        workout_data = serialize_workout(workout, include_exercises=True)
+        
         return responses.success_response(
-            serialize_workout(workout, include_exercises=True),
+            workout_data,
             "Workout retrieved successfully"
         )
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return responses.error_response(
             "Database error",
             str(e),

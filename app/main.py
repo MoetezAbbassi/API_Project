@@ -5,9 +5,85 @@ from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from flasgger import Flasgger
 import os
+import uuid
+from datetime import datetime
 
 from app.extensions import db, jwt
 from config import current_config
+
+
+def _seed_exercises_inline():
+    """Seed exercises directly (called from within app context)"""
+    from app.models import Exercise
+    
+    exercises_data = [
+        # Chest
+        {"name": "Barbell Bench Press", "description": "Classic chest exercise", "primary_muscle_group": "chest", "secondary_muscle_groups": ["shoulders", "triceps"], "difficulty_level": "beginner", "typical_calories_per_minute": 7.5},
+        {"name": "Dumbbell Bench Press", "description": "Bench press with dumbbells", "primary_muscle_group": "chest", "secondary_muscle_groups": ["shoulders", "triceps"], "difficulty_level": "beginner", "typical_calories_per_minute": 7.0},
+        {"name": "Push-Ups", "description": "Bodyweight chest exercise", "primary_muscle_group": "chest", "secondary_muscle_groups": ["shoulders", "triceps", "core"], "difficulty_level": "beginner", "typical_calories_per_minute": 7.0},
+        {"name": "Dumbbell Flyes", "description": "Isolation exercise for chest", "primary_muscle_group": "chest", "secondary_muscle_groups": ["shoulders"], "difficulty_level": "intermediate", "typical_calories_per_minute": 5.5},
+        {"name": "Cable Crossover", "description": "Cable chest exercise", "primary_muscle_group": "chest", "secondary_muscle_groups": ["shoulders"], "difficulty_level": "intermediate", "typical_calories_per_minute": 6.0},
+        
+        # Back
+        {"name": "Deadlift", "description": "Compound back exercise", "primary_muscle_group": "back", "secondary_muscle_groups": ["legs", "core"], "difficulty_level": "intermediate", "typical_calories_per_minute": 9.0},
+        {"name": "Pull-Ups", "description": "Bodyweight back exercise", "primary_muscle_group": "back", "secondary_muscle_groups": ["biceps", "shoulders"], "difficulty_level": "intermediate", "typical_calories_per_minute": 8.0},
+        {"name": "Barbell Row", "description": "Rowing movement for back", "primary_muscle_group": "back", "secondary_muscle_groups": ["biceps"], "difficulty_level": "intermediate", "typical_calories_per_minute": 7.5},
+        {"name": "Lat Pulldown", "description": "Machine exercise for lats", "primary_muscle_group": "back", "secondary_muscle_groups": ["biceps"], "difficulty_level": "beginner", "typical_calories_per_minute": 6.5},
+        {"name": "Seated Cable Row", "description": "Cable rowing exercise", "primary_muscle_group": "back", "secondary_muscle_groups": ["biceps"], "difficulty_level": "beginner", "typical_calories_per_minute": 6.0},
+        
+        # Legs
+        {"name": "Barbell Squat", "description": "Compound leg exercise", "primary_muscle_group": "legs", "secondary_muscle_groups": ["core"], "difficulty_level": "beginner", "typical_calories_per_minute": 8.5},
+        {"name": "Leg Press", "description": "Machine leg exercise", "primary_muscle_group": "legs", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 7.5},
+        {"name": "Lunges", "description": "Single-leg exercise", "primary_muscle_group": "legs", "secondary_muscle_groups": ["core"], "difficulty_level": "beginner", "typical_calories_per_minute": 7.0},
+        {"name": "Leg Extension", "description": "Quadriceps isolation", "primary_muscle_group": "legs", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 5.0},
+        {"name": "Leg Curl", "description": "Hamstring isolation", "primary_muscle_group": "legs", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 5.0},
+        
+        # Shoulders
+        {"name": "Overhead Press", "description": "Shoulder press with barbell", "primary_muscle_group": "shoulders", "secondary_muscle_groups": ["triceps", "core"], "difficulty_level": "beginner", "typical_calories_per_minute": 7.0},
+        {"name": "Dumbbell Shoulder Press", "description": "Shoulder press with dumbbells", "primary_muscle_group": "shoulders", "secondary_muscle_groups": ["triceps"], "difficulty_level": "beginner", "typical_calories_per_minute": 6.5},
+        {"name": "Lateral Raises", "description": "Side delt isolation", "primary_muscle_group": "shoulders", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        {"name": "Front Raises", "description": "Front delt isolation", "primary_muscle_group": "shoulders", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        {"name": "Face Pulls", "description": "Rear delt and upper back", "primary_muscle_group": "shoulders", "secondary_muscle_groups": ["back"], "difficulty_level": "intermediate", "typical_calories_per_minute": 5.0},
+        
+        # Arms
+        {"name": "Barbell Curl", "description": "Bicep exercise with barbell", "primary_muscle_group": "arms", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        {"name": "Dumbbell Curl", "description": "Bicep exercise with dumbbells", "primary_muscle_group": "arms", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        {"name": "Tricep Dips", "description": "Bodyweight tricep exercise", "primary_muscle_group": "arms", "secondary_muscle_groups": ["chest", "shoulders"], "difficulty_level": "intermediate", "typical_calories_per_minute": 6.5},
+        {"name": "Tricep Pushdown", "description": "Cable tricep exercise", "primary_muscle_group": "arms", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        {"name": "Hammer Curl", "description": "Bicep and forearm exercise", "primary_muscle_group": "arms", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 4.5},
+        
+        # Core
+        {"name": "Plank", "description": "Isometric core exercise", "primary_muscle_group": "core", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 5.0},
+        {"name": "Crunches", "description": "Basic ab exercise", "primary_muscle_group": "core", "secondary_muscle_groups": [], "difficulty_level": "beginner", "typical_calories_per_minute": 5.5},
+        {"name": "Russian Twists", "description": "Oblique exercise", "primary_muscle_group": "core", "secondary_muscle_groups": [], "difficulty_level": "intermediate", "typical_calories_per_minute": 6.0},
+        {"name": "Hanging Leg Raises", "description": "Advanced ab exercise", "primary_muscle_group": "core", "secondary_muscle_groups": [], "difficulty_level": "advanced", "typical_calories_per_minute": 7.0},
+        {"name": "Mountain Climbers", "description": "Dynamic core exercise", "primary_muscle_group": "core", "secondary_muscle_groups": ["cardio"], "difficulty_level": "intermediate", "typical_calories_per_minute": 9.0},
+        
+        # Cardio
+        {"name": "Running", "description": "Outdoor or treadmill running", "primary_muscle_group": "cardio", "secondary_muscle_groups": ["legs"], "difficulty_level": "beginner", "typical_calories_per_minute": 11.0},
+        {"name": "Cycling", "description": "Stationary or outdoor cycling", "primary_muscle_group": "cardio", "secondary_muscle_groups": ["legs"], "difficulty_level": "beginner", "typical_calories_per_minute": 9.0},
+        {"name": "Jump Rope", "description": "Cardio with jump rope", "primary_muscle_group": "cardio", "secondary_muscle_groups": ["legs", "arms"], "difficulty_level": "intermediate", "typical_calories_per_minute": 12.0},
+        {"name": "Burpees", "description": "Full body cardio exercise", "primary_muscle_group": "cardio", "secondary_muscle_groups": ["full_body"], "difficulty_level": "intermediate", "typical_calories_per_minute": 10.0},
+        {"name": "Rowing Machine", "description": "Full body cardio", "primary_muscle_group": "cardio", "secondary_muscle_groups": ["back", "legs"], "difficulty_level": "beginner", "typical_calories_per_minute": 10.5}
+    ]
+    
+    for ex_data in exercises_data:
+        exercise = Exercise(
+            exercise_id=str(uuid.uuid4()),
+            name=ex_data["name"],
+            description=ex_data["description"],
+            primary_muscle_group=ex_data["primary_muscle_group"],
+            secondary_muscle_groups=",".join(ex_data["secondary_muscle_groups"]),
+            difficulty_level=ex_data["difficulty_level"],
+            typical_calories_per_minute=ex_data["typical_calories_per_minute"],
+            is_custom=False,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.session.add(exercise)
+    
+    db.session.commit()
+    print(f"✓ Seeded {len(exercises_data)} exercises")
 
 
 def create_app(config=None):
@@ -63,12 +139,13 @@ def create_app(config=None):
             # Auto-seed exercises if database is empty
             if models.Exercise.query.count() == 0:
                 try:
-                    from scripts.seed_exercises import seed_exercises
                     print("🌱 Seeding exercises into database...")
-                    seed_exercises()
+                    _seed_exercises_inline()
                     print("✓ Exercises seeded successfully")
                 except Exception as seed_error:
                     print(f"⚠ Could not auto-seed exercises: {seed_error}")
+                    import traceback
+                    traceback.print_exc()
                     
         except Exception as e:
             print(f"Warning: Could not create database tables: {e}")

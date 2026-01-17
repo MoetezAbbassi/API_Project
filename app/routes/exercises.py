@@ -15,17 +15,18 @@ from app.utils.constants import MUSCLE_GROUPS, DIFFICULTY_LEVELS
 bp = Blueprint('exercises', __name__, url_prefix='/api/exercises')
 
 
-def serialize_exercise(exercise: Exercise) -> dict:
+def serialize_exercise(exercise: Exercise, include_user_info=False) -> dict:
     """
     Serialize Exercise object to dictionary
     
     Args:
         exercise: Exercise model instance
+        include_user_info: Whether to include user information for custom exercises
         
     Returns:
         Dictionary representation of exercise
     """
-    return {
+    result = {
         "exercise_id": exercise.exercise_id,
         "name": exercise.name,
         "description": exercise.description,
@@ -33,8 +34,14 @@ def serialize_exercise(exercise: Exercise) -> dict:
         "secondary_muscle_groups": exercise.secondary_muscle_groups or [],
         "difficulty_level": exercise.difficulty_level,
         "typical_calories_per_minute": exercise.typical_calories_per_minute,
+        "is_custom": exercise.is_custom if hasattr(exercise, 'is_custom') else False,
         "created_at": exercise.created_at.isoformat() if exercise.created_at else None
     }
+    
+    if include_user_info and exercise.user_id:
+        result["user_id"] = exercise.user_id
+    
+    return result
 
 
 @bp.route('', methods=['GET'])
@@ -42,32 +49,83 @@ def list_exercises():
     """
     List exercises with optional filtering by muscle group and difficulty
     
+    Returns system exercises + user's custom exercises if authenticated
+    
     Query params:
     - muscle: Filter by muscle group (chest, back, legs, shoulders, arms, core, cardio)
     - muscle_group: Alias for muscle
     - difficulty: Filter by difficulty level (beginner, intermediate, advanced)
     - page: Page number (default 1)
-    - per_page: Items per page (default 10)
+    - per_page: Items per page (default 50)
     """
     try:
+        # Get token if available (optional authentication)
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_id = None
+        if token:
+            try:
+                from flask_jwt_extended import decode_token
+                decoded = decode_token(token)
+                user_id = decoded.get('sub')
+            except:
+                pass  # No valid token, just show system exercises
+        
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
         muscle = request.args.get('muscle', type=str) or request.args.get('muscle_group', type=str)
         difficulty = request.args.get('difficulty', type=str)
         
-        query = db.session.query(Exercise)
+        # Query system exercises (is_custom = False OR is_custom is NULL for backward compatibility)
+        query = db.session.query(Exercise).filter(
+            db.or_(
+                Exercise.is_custom == False,
+                Exercise.is_custom == None
+            )
+        )
         
-        # Filter by muscle group if provided
-        if muscle:
-            is_valid, _ = validators.validate_enum(muscle, MUSCLE_GROUPS)
-            if is_valid:
-                query = query.filter_by(primary_muscle_group=muscle)
-        
-        # Filter by difficulty if provided
-        if difficulty:
-            is_valid, _ = validators.validate_enum(difficulty, DIFFICULTY_LEVELS)
-            if is_valid:
-                query = query.filter_by(difficulty_level=difficulty)
+        # Add user's custom exercises if authenticated
+        if user_id:
+            custom_query = db.session.query(Exercise).filter(
+                Exercise.is_custom == True,
+                Exercise.user_id == user_id
+            )
+            
+            # Apply filters to custom query
+            if muscle:
+                is_valid, _ = validators.validate_enum(muscle, MUSCLE_GROUPS)
+                if is_valid:
+                    custom_query = custom_query.filter_by(primary_muscle_group=muscle)
+            
+            if difficulty:
+                is_valid, _ = validators.validate_enum(difficulty, DIFFICULTY_LEVELS)
+                if is_valid:
+                    custom_query = custom_query.filter_by(difficulty_level=difficulty)
+            
+            # Combine queries
+            if muscle or difficulty:
+                # Apply same filters to system query
+                if muscle:
+                    is_valid, _ = validators.validate_enum(muscle, MUSCLE_GROUPS)
+                    if is_valid:
+                        query = query.filter_by(primary_muscle_group=muscle)
+                
+                if difficulty:
+                    is_valid, _ = validators.validate_enum(difficulty, DIFFICULTY_LEVELS)
+                    if is_valid:
+                        query = query.filter_by(difficulty_level=difficulty)
+            
+            query = query.union(custom_query)
+        else:
+            # Filter system exercises only
+            if muscle:
+                is_valid, _ = validators.validate_enum(muscle, MUSCLE_GROUPS)
+                if is_valid:
+                    query = query.filter_by(primary_muscle_group=muscle)
+            
+            if difficulty:
+                is_valid, _ = validators.validate_enum(difficulty, DIFFICULTY_LEVELS)
+                if is_valid:
+                    query = query.filter_by(difficulty_level=difficulty)
         
         # Paginate
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -82,6 +140,8 @@ def list_exercises():
         )
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return responses.error_response(
             "Database error",
             str(e),
@@ -118,6 +178,13 @@ def get_exercise(exercise_id):
     - exercise_id: Exercise ID (UUID)
     """
     try:
+        # Validate UUID format
+        import uuid
+        try:
+            uuid.UUID(exercise_id)
+        except ValueError:
+            return responses.validation_error_response("Invalid exercise ID format")
+        
         exercise = db.session.query(Exercise).filter_by(exercise_id=exercise_id).first()
         if not exercise:
             return responses.not_found_response("Exercise not found")
@@ -128,6 +195,8 @@ def get_exercise(exercise_id):
         )
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return responses.error_response(
             "Database error",
             str(e),
@@ -240,8 +309,14 @@ def create_exercise(token_user_id):
                 data['primary_muscle_group']
             )
         
-        # Check for duplicate exercise name
-        existing = db.session.query(Exercise).filter_by(name=data['name']).first()
+        # Check for duplicate exercise name (only for user's own custom exercises and system exercises)
+        existing = db.session.query(Exercise).filter(
+            Exercise.name == data['name'],
+            db.or_(
+                Exercise.is_custom == False,
+                db.and_(Exercise.is_custom == True, Exercise.user_id == token_user_id)
+            )
+        ).first()
         if existing:
             return responses.conflict_response("Exercise with this name already exists")
         
@@ -257,7 +332,9 @@ def create_exercise(token_user_id):
             primary_muscle_group=data['primary_muscle_group'],
             secondary_muscle_groups=json.dumps(secondary_muscles),
             difficulty_level=data['difficulty_level'],
-            typical_calories_per_minute=calories_per_min
+            typical_calories_per_minute=calories_per_min,
+            is_custom=True,  # User-created exercise
+            user_id=token_user_id  # Associate with user
         )
         
         db.session.add(exercise)

@@ -126,14 +126,25 @@ def list_meals_current_user(token_user_id):
         per_page = request.args.get('per_page', 20, type=int)
         date_filter = request.args.get('date', type=str)
         
+        # Validate pagination parameters
+        if page < 1:
+            return responses.validation_error_response("Page number must be positive")
+        if per_page < 1 or per_page > 100:
+            return responses.validation_error_response("Items per page must be between 1 and 100")
+        
         query = db.session.query(Meal).filter_by(user_id=token_user_id)
         
         # Filter by date if provided
         if date_filter:
             is_valid, error_msg = validators.validate_date(date_filter)
-            if is_valid:
+            if not is_valid:
+                return responses.validation_error_response(f"Invalid date format: {error_msg}")
+            
+            try:
                 filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
                 query = query.filter(Meal.meal_date == filter_date)
+            except ValueError as e:
+                return responses.validation_error_response(f"Invalid date format: {str(e)}")
         
         # Order by date descending
         query = query.order_by(Meal.meal_date.desc())

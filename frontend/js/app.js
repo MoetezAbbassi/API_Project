@@ -44,9 +44,9 @@ const App = {
   
   // Update user info in sidebar
   updateUserInfo() {
-    const userInfo = document.getElementById('userInfo');
-    if (userInfo && this.user) {
-      userInfo.textContent = `Welcome, ${this.user.username}`;
+    const sidebarUsername = document.getElementById('sidebarUsername');
+    if (sidebarUsername && this.user) {
+      sidebarUsername.textContent = this.user.username || 'User';
     }
   },
   
